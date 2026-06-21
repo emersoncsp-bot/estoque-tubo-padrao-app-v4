@@ -1,41 +1,48 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import jsQR from "jsqr";
+
 // ── Supabase client ────────────────────────────────────────────
 const supabase = createClient(
- import.meta.env.VITE_SUPABASE_URL,
- import.meta.env.VITE_SUPABASE_ANON_KEY
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
 );
+
 const DEFAULT_PIN = "1234";
+const DEFAULT_USER_PASSWORD = "1234";
+
 const fmt = (iso) => {
- const d = new Date(iso);
- return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso);
+  return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 };
 const validCode = (c) => /^EC\d{3,5}$/.test(c.toUpperCase());
+
 // ── Etiquetas de área (filtro da Lista de padrões) ──────────────
 const AREA_TAGS = ["In Line", "Q&T", "Flex Line"];
+
 // ── Design tokens ──────────────────────────────────────────────
 const C = {
- bg: "#f5f7fa",
- panel: "#ffffff",
- panel2: "#eef1f6",
- line: "#dde3ec",
- line2: "#c7d0dc",
- txt: "#1b2431",
- muted: "#5a6675",
- muted2: "#8a93a3",
- accent: "#2563eb",
- accentD: "#1d4ed8",
- gray: "#6b7280",
- grayL: "#5b6675",
- grayD: "#cdd5df",
- ok: "#15803d",
- warn: "#b45309",
- loc: "#0e7490",
- signal: "#dc2626",
+  bg:      "#f5f7fa",
+  panel:   "#ffffff",
+  panel2:  "#eef1f6",
+  line:    "#dde3ec",
+  line2:   "#c7d0dc",
+  txt:     "#1b2431",
+  muted:   "#5a6675",
+  muted2:  "#8a93a3",
+  accent:  "#2563eb",
+  accentD: "#1d4ed8",
+  gray:    "#6b7280",
+  grayL:   "#5b6675",
+  grayD:   "#cdd5df",
+  ok:      "#15803d",
+  warn:    "#b45309",
+  loc:     "#0e7490",
+  signal:  "#dc2626",
 };
 const FS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif";
 const FM = "'IBM Plex Mono', 'Courier New', monospace";
+
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 .vlr, .vlr *{ box-sizing:border-box; }
@@ -71,805 +78,1011 @@ const CSS = `
 @keyframes vlrPulse{ 0%,100%{ opacity:.35; } 50%{ opacity:1; } }
 .vlr .modal-card{ animation:vlrFade .22s ease; }
 `;
+
 const S = {
- input: { width: "100%", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px 13px", color: C.txt, fontFamily: FM, fontSize: 13, outline: "none", boxSizing: "border-box" },
- tag: (color) => ({ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: FM, fontSize: 11.5, padding: "3px 9px", borderRadius: 7, border: `1px solid ${color}3a`, background: `${color}14`, color, lineHeight: 1.6, whiteSpace: "nowrap" }),
+  input: { width: "100%", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px 13px", color: C.txt, fontFamily: FM, fontSize: 13, outline: "none", boxSizing: "border-box" },
+  tag: (color) => ({ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: FM, fontSize: 11.5, padding: "3px 9px", borderRadius: 7, border: `1px solid ${color}3a`, background: `${color}14`, color, lineHeight: 1.6, whiteSpace: "nowrap" }),
 };
+
 // ── Line icons ─────────────────────────────────────────────────
 const PATHS = {
- search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></>,
- sliders: <><path d="M4 7h16" /><path d="M4 17h16" /><circle cx="9" cy="7" r="2.4" /><circle cx="15" cy="17" r="2.4" /></>,
- swap: <><path d="M4 8h13l-3.4-3.4" /><path d="M20 16H7l3.4 3.4" /></>,
- box: <><path d="M3.5 7.5 12 3l8.5 4.5L12 12 3.5 7.5z" /><path d="M3.5 7.5V16L12 20.5 20.5 16V7.5" /><path d="M12 12v8.5" /></>,
- pin: <><path d="M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.8-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></>,
- tag: <><path d="M11 3H5a2 2 0 0 0-2 2v6l9 9 8-8-9-9z" /><circle cx="7.5" cy="7.5" r="1.3" /></>,
- user: <><circle cx="12" cy="8" r="3.2" /><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
- key: <><circle cx="8" cy="15" r="3.4" /><path d="M10.4 12.6 20 3" /><path d="M16.5 6.5 19 9" /><path d="M14 9l2 2" /></>,
- edit: <><path d="M4 20h4L19 9l-4-4L4 16v4z" /><path d="M13.5 6.5l4 4" /></>,
- trash: <><path d="M4 7h16" /><path d="M9 7V5h6v2" /><path d="M6.5 7l1 12.5h9l1-12.5" /></>,
- camera: <><path d="M4 8.5h3L8.4 6h7.2L17 8.5h3v10.5H4z" /><circle cx="12" cy="13.2" r="3.1" /></>,
- check: <path d="M5 13l4 4L19 7" />,
- arrowR: <><path d="M5 12h13" /><path d="M12.5 6l6 6-6 6" /></>,
- arrowL: <><path d="M19 12H6" /><path d="M11.5 18l-6-6 6-6" /></>,
- close: <><path d="M6 6l12 12" /><path d="M18 6 6 18" /></>,
- clock: <><circle cx="12" cy="12" r="8.2" /><path d="M12 7.5V12l3 1.8" /></>,
- stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
- plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
- save: <><path d="M5 5h11l3 3v11H5z" /><path d="M8 5v5h7V5" /><path d="M8 19v-6h8v6" /></>,
- list: <><path d="M9 6h11" /><path d="M9 12h11" /><path d="M9 18h11" /><circle cx="4.5" cy="6" r="1.1" /><circle cx="4.5" cy="12" r="1.1" /><circle cx="4.5" cy="18" r="1.1" /></>,
- history: <><path d="M3.5 12a8.5 8.5 0 1 0 2.7-6.2" /><path d="M3 4.5V8h3.5" /><path d="M12 8v4l3 1.8" /></>,
- lock: <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
- alert: <><path d="M12 4 2.5 20h19z" /><path d="M12 10v4.2" /><circle cx="12" cy="17.3" r="0.7" fill="currentColor" stroke="none" /></>,
+  search:  <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></>,
+  sliders: <><path d="M4 7h16" /><path d="M4 17h16" /><circle cx="9" cy="7" r="2.4" /><circle cx="15" cy="17" r="2.4" /></>,
+  swap:    <><path d="M4 8h13l-3.4-3.4" /><path d="M20 16H7l3.4 3.4" /></>,
+  box:     <><path d="M3.5 7.5 12 3l8.5 4.5L12 12 3.5 7.5z" /><path d="M3.5 7.5V16L12 20.5 20.5 16V7.5" /><path d="M12 12v8.5" /></>,
+  pin:     <><path d="M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.8-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></>,
+  tag:     <><path d="M11 3H5a2 2 0 0 0-2 2v6l9 9 8-8-9-9z" /><circle cx="7.5" cy="7.5" r="1.3" /></>,
+  user:    <><circle cx="12" cy="8" r="3.2" /><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
+  key:     <><circle cx="8" cy="15" r="3.4" /><path d="M10.4 12.6 20 3" /><path d="M16.5 6.5 19 9" /><path d="M14 9l2 2" /></>,
+  edit:    <><path d="M4 20h4L19 9l-4-4L4 16v4z" /><path d="M13.5 6.5l4 4" /></>,
+  trash:   <><path d="M4 7h16" /><path d="M9 7V5h6v2" /><path d="M6.5 7l1 12.5h9l1-12.5" /></>,
+  camera:  <><path d="M4 8.5h3L8.4 6h7.2L17 8.5h3v10.5H4z" /><circle cx="12" cy="13.2" r="3.1" /></>,
+  check:   <path d="M5 13l4 4L19 7" />,
+  arrowR:  <><path d="M5 12h13" /><path d="M12.5 6l6 6-6 6" /></>,
+  arrowL:  <><path d="M19 12H6" /><path d="M11.5 18l-6-6 6-6" /></>,
+  close:   <><path d="M6 6l12 12" /><path d="M18 6 6 18" /></>,
+  clock:   <><circle cx="12" cy="12" r="8.2" /><path d="M12 7.5V12l3 1.8" /></>,
+  stop:    <rect x="6" y="6" width="12" height="12" rx="2" />,
+  plus:    <><path d="M12 5v14" /><path d="M5 12h14" /></>,
+  save:    <><path d="M5 5h11l3 3v11H5z" /><path d="M8 5v5h7V5" /><path d="M8 19v-6h8v6" /></>,
+  list:    <><path d="M9 6h11" /><path d="M9 12h11" /><path d="M9 18h11" /><circle cx="4.5" cy="6" r="1.1" /><circle cx="4.5" cy="12" r="1.1" /><circle cx="4.5" cy="18" r="1.1" /></>,
+  history: <><path d="M3.5 12a8.5 8.5 0 1 0 2.7-6.2" /><path d="M3 4.5V8h3.5" /><path d="M12 8v4l3 1.8" /></>,
+  lock:    <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
+  alert:   <><path d="M12 4 2.5 20h19z" /><path d="M12 10v4.2" /><circle cx="12" cy="17.3" r="0.7" fill="currentColor" stroke="none" /></>,
 };
 function Icon({ name, size = 16, color = "currentColor", style }) {
- return (
- <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
- stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
- style={{ flexShrink: 0, ...style }}>
- {PATHS[name]}
- </svg>
- );
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+      style={{ flexShrink: 0, ...style }}>
+      {PATHS[name]}
+    </svg>
+  );
 }
+
 // ══════════════════════════════════════════════════════════════
 export default function App() {
- const [loaded, setLoaded] = useState(false);
- const [page, setPage] = useState("home");
- const [produtos, setProdutos] = useState([]);
- const [historico, setHistorico] = useState([]);
- const [locais, setLocais] = useState([]);
- const [resps, setResps] = useState([]);
- const [categorias, setCategorias] = useState([]);
- const [pin, setPin] = useState(DEFAULT_PIN);
- const [search, setSearch] = useState("");
- const [areaFilter, setAreaFilter] = useState(null);
- // modals
- const [showMove, setShowMove] = useState(false);
- const [showPinGate, setShowPinGate] = useState(false);
- const [pinInput, setPinInput] = useState("");
- const [pinError, setPinError] = useState("");
- const [pinTarget, setPinTarget] = useState(null);
- // movimentação wizard
- const [mvStep, setMvStep] = useState(1);
- const [mvProdInput, setMvProdInput] = useState("");
- const [mvProdObj, setMvProdObj] = useState(null);
- const [mvLocalInput, setMvLocalInput] = useState("");
- const [mvRespInput, setMvRespInput] = useState("");
- const [mvError, setMvError] = useState("");
- const [mvScanActive, setMvScanActive] = useState(false);
- const videoRef = useRef(null);
- const streamRef = useRef(null);
- const scanTimer = useRef(null);
- // admin
- const [adminTab, setAdminTab] = useState("produtos");
- const [adminMsg, setAdminMsg] = useState("");
- const [apCode, setApCode] = useState("");
- const [apName, setApName] = useState("");
- const [apCat, setApCat] = useState("");
- const [apLocal, setApLocal] = useState("");
- const [apEdit, setApEdit] = useState(null);
- const [apError, setApError] = useState("");
- const [apSearch, setApSearch] = useState("");
- const [alVal, setAlVal] = useState("");
- const [alEdit, setAlEdit] = useState(null);
- const [arVal, setArVal] = useState("");
- const [arEdit, setArEdit] = useState(null);
- const [acVal, setAcVal] = useState("");
- const [acEdit, setAcEdit] = useState(null);
- const [ep1, setEp1] = useState("");
- const [ep2, setEp2] = useState("");
- // ── Load from Supabase ────────────────────────────────────
- useEffect(() => {
- const load = async () => {
- const [
- { data: prods },
- { data: hist },
- { data: locs },
- { data: rs },
- { data: cats },
- ] = await Promise.all([
- supabase.from("produtos").select("*").order("created_at", { ascending: true }),
- supabase.from("historico").select("*").order("data", { ascending: false }),
- supabase.from("locais").select("*"),
- supabase.from("responsaveis").select("*"),
- supabase.from("categorias").select("*"),
- ]);
- setProdutos(prods || []);
- setHistorico(hist || []);
- setLocais((locs || []).map(l => l.nome));
- setResps((rs || []).map(r => r.nome));
- setCategorias((cats || []).map(c => c.nome));
- // PIN lido do Supabase (sincronizado entre dispositivos)
- const { data: configPin } = await supabase
- .from("configuracoes")
- .select("valor")
- .eq("chave", "pin")
- .maybeSingle();
- if (configPin?.valor) {
- setPin(configPin.valor);
- localStorage.setItem("est-pin", configPin.valor);
- } else {
- const savedPin = localStorage.getItem("est-pin");
- if (savedPin) setPin(savedPin);
- }
- setLoaded(true);
- };
- load();
- }, []);
- // ── PIN ───────────────────────────────────────────────────
- const savePin = async (p) => {
- setPin(p);
- localStorage.setItem("est-pin", p);
- await supabase
- .from("configuracoes")
- .upsert({ chave: "pin", valor: p }, { onConflict: "chave" });
- };
- const askPin = (fn) => { setPinTarget(() => fn); setPinInput(""); setPinError(""); setShowPinGate(true); };
- const confirmPin = () => {
- if (pinInput === pin) { setShowPinGate(false); pinTarget && pinTarget(); }
- else { setPinError("PIN incorreto"); setPinInput(""); }
- };
- // ── QR Scanner ────────────────────────────────────────────
- const stopScan = () => {
- clearInterval(scanTimer.current);
- if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
- setMvScanActive(false);
- };
- const startScan = async (onResult) => {
- try {
- const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
- streamRef.current = stream;
- if (videoRef.current) {
- videoRef.current.srcObject = stream;
- await videoRef.current.play(); // ← Bug 1 corrigido: aguarda o vídeo iniciar
- }
- setMvScanActive(true);
- const handle = (text) => { stopScan(); onResult(text.trim()); };
- if ("BarcodeDetector" in window) {
- const bd = new BarcodeDetector({ formats: ["qr_code"] });
- scanTimer.current = setInterval(async () => {
- try {
- if (!videoRef.current?.videoWidth) return; // ← Bug 2 corrigido
- const c = await bd.detect(videoRef.current);
- if (c.length > 0) handle(c[0].rawValue);
- } catch (_) {}
- }, 300);
- } else {
- const canvas = document.createElement("canvas");
- const ctx = canvas.getContext("2d");
- scanTimer.current = setInterval(() => {
- if (!videoRef.current?.videoWidth) return;
- canvas.width = videoRef.current.videoWidth;
- canvas.height = videoRef.current.videoHeight;
- ctx.drawImage(videoRef.current, 0, 0);
- const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
- const code = jsQR(img.data, img.width, img.height);
- if (code) handle(code.data);
- }, 300);
- }
- } catch (e) {
- alert("Câmera indisponível: " + e.message);
- }
- };
- useEffect(() => () => stopScan(), []);
- // ── Movimentação ──────────────────────────────────────────
- const openMove = () => {
- setMvStep(1); setMvProdInput(""); setMvProdObj(null);
- setMvLocalInput(""); setMvRespInput(""); setMvError("");
- stopScan(); setShowMove(true);
- };
- const closeMove = () => { stopScan(); setShowMove(false); };
- const mvStep1Next = () => {
- setMvError("");
- const code = mvProdInput.toUpperCase().trim();
- if (!validCode(code)) { setMvError("Código inválido. Use o formato EC + 3 a 5 números"); return; }
- const prod = produtos.find(p => p.code === code);
- if (!prod) { setMvError("Padrão não encontrado"); return; }
- setMvProdObj(prod); setMvStep(2);
- };
- const mvStep2Next = () => {
- setMvError("");
- const loc = mvLocalInput.trim();
- if (!loc) { setMvError("Selecione ou escaneie o local de destino"); return; }
- if (!locais.includes(loc)) { setMvError("Local não reconhecido"); return; }
- if (loc === mvProdObj.shelf) { setMvError("O padrão já está neste local"); return; }
- setMvStep(3);
- };
- const mvStep3Confirm = async () => {
- setMvError("");
- if (!mvRespInput) { setMvError("Selecione o responsável"); return; }
- const now = new Date().toISOString();
- const evento = {
- id: Date.now(),
- code: mvProdObj.code,
- de: mvProdObj.shelf,
- para: mvLocalInput,
- responsavel: mvRespInput,
- data: now,
- };
- // Salva histórico no Supabase
- await supabase.from("historico").insert([evento]);
- // Atualiza shelf do produto no Supabase
- await supabase.from("produtos").update({ shelf: mvLocalInput }).eq("code", mvProdObj.code);
- // Atualiza estado local
- setProdutos(prev => prev.map(p => p.code === mvProdObj.code ? { ...p, shelf: mvLocalInput } : p));
- setHistorico(prev => [evento, ...prev]);
- stopScan();
- setMvStep(1); setMvProdInput(""); setMvProdObj(null);
- setMvLocalInput(""); setMvRespInput(""); setMvError("");
- setShowMove(false);
- };
- const scanStep1 = () => startScan((val) => {
- const code = val.toUpperCase();
- if (!validCode(code)) { setMvError("QR inválido: esperado EC + 3 a 5 números"); return; }
- const prod = produtos.find(p => p.code === code);
- if (!prod) { setMvError("Padrão não encontrado: " + code); return; }
- setMvProdInput(code); setMvProdObj(prod); setMvStep(2);
- });
- const scanStep2 = () => startScan((val) => {
- if (!locais.includes(val)) { setMvError("Local não reconhecido: " + val); return; }
- setMvLocalInput(val); setMvStep(3);
- });
- // ── Admin – Produtos ──────────────────────────────────────
- const startAddProd = () => { setApEdit(null); setApCode(""); setApName(""); setApCat(""); setApLocal(""); setApError(""); };
- const startEditProd = (p) => { setApEdit(p); setApCode(p.code); setApName(p.name || ""); setApCat(p.category || ""); setApLocal(p.shelf || ""); setApError(""); };
- const saveProd = async () => {
- setApError("");
- const code = apCode.toUpperCase().trim();
- if (!validCode(code)) { setApError("Código deve ser EC + 3 a 5 números"); return; }
- if (!apName.trim()) { setApError("Informe a descrição."); return; }
- if (!apCat) { setApError("Selecione a categoria do padrão."); return; }
- if (!apLocal) { setApError("Selecione o local de armazenamento"); return; }
- if (!apEdit && produtos.find(p => p.code === code)) { setApError("Padrão já cadastrado"); return; }
- if (apEdit) {
- await supabase.from("produtos").update({ code, name: apName.trim(), category: apCat, shelf: apLocal }).eq("code", apEdit.code);
- setProdutos(prev => prev.map(p => p.code === apEdit.code ? { ...p, code, name: apName.trim(), category: apCat, shelf: apLocal } : p));
- } else {
- const novo = { code, name: apName.trim(), category: apCat, shelf: apLocal, created_at: new Date().toISOString() };
- await supabase.from("produtos").insert([novo]);
- setProdutos(prev => [...prev, novo]);
- }
- setApEdit(null); setApCode(""); setApName(""); setApCat(""); setApLocal(""); setApError("");
- setAdminMsg(apEdit ? "Padrão atualizado!" : "Padrão cadastrado!"); setTimeout(() => setAdminMsg(""), 3000);
- };
- const deleteProd = async (code) => {
- if (!window.confirm(`Excluir padrão ${code}?`)) return;
- await supabase.from("produtos").delete().eq("code", code);
- setProdutos(prev => prev.filter(p => p.code !== code));
- setAdminMsg("Padrão excluído."); setTimeout(() => setAdminMsg(""), 3000);
- };
- // ── Admin – Locais ────────────────────────────────────────
- const saveLocal = async () => {
- const v = alVal.trim();
- if (!v) { setAdminMsg("Nome inválido."); return; }
- if (!alEdit && locais.includes(v)) { setAdminMsg("Local já existe."); return; }
- if (alEdit) {
- await supabase.from("locais").update({ nome: v }).eq("nome", alEdit);
- await supabase.from("produtos").update({ shelf: v }).eq("shelf", alEdit);
- setLocais(prev => prev.map(l => l === alEdit ? v : l));
- setProdutos(prev => prev.map(p => p.shelf === alEdit ? { ...p, shelf: v } : p));
- } else {
- await supabase.from("locais").insert([{ nome: v }]);
- setLocais(prev => [...prev, v]);
- }
- setAlVal(""); setAlEdit(null);
- setAdminMsg(alEdit ? "Local atualizado!" : "Local adicionado!"); setTimeout(() => setAdminMsg(""), 3000);
- };
- const deleteLocal = async (l) => {
- if (!window.confirm(`Excluir local "${l}"?`)) return;
- await supabase.from("locais").delete().eq("nome", l);
- setLocais(prev => prev.filter(x => x !== l));
- setAdminMsg("Local excluído."); setTimeout(() => setAdminMsg(""), 3000);
- };
- // ── Admin – Responsáveis ──────────────────────────────────
- const saveResp = async () => {
- const v = arVal.trim();
- if (!v) { setAdminMsg("Nome inválido."); return; }
- if (!arEdit && resps.includes(v)) { setAdminMsg("Responsável já existe."); return; }
- if (arEdit) {
- await supabase.from("responsaveis").update({ nome: v }).eq("nome", arEdit);
- setResps(prev => prev.map(r => r === arEdit ? v : r));
- } else {
- await supabase.from("responsaveis").insert([{ nome: v }]);
- setResps(prev => [...prev, v]);
- }
- setArVal(""); setArEdit(null);
- setAdminMsg(arEdit ? "Usuário atualizado!" : "Usuário adicionado!"); setTimeout(() => setAdminMsg(""), 3000);
- };
- const deleteResp = async (r) => {
- if (!window.confirm(`Excluir usuário "${r}"?`)) return;
- await supabase.from("responsaveis").delete().eq("nome", r);
- setResps(prev => prev.filter(x => x !== r));
- setAdminMsg("Usuário excluído."); setTimeout(() => setAdminMsg(""), 3000);
- };
- // ── Admin – Categorias ────────────────────────────────────
- const saveCat = async () => {
- const v = acVal.trim();
- if (!v) { setAdminMsg("Nome inválido."); return; }
- if (!acEdit && categorias.includes(v)) { setAdminMsg("Categoria já existe."); return; }
- if (acEdit) {
- await supabase.from("categorias").update({ nome: v }).eq("nome", acEdit);
- setCategorias(prev => prev.map(c => c === acEdit ? v : c));
- } else {
- await supabase.from("categorias").insert([{ nome: v }]);
- setCategorias(prev => [...prev, v]);
- }
- setAcVal(""); setAcEdit(null);
- setAdminMsg(acEdit ? "Categoria atualizada!" : "Categoria adicionada!"); setTimeout(() => setAdminMsg(""), 3000);
- };
- const deleteCat = async (c) => {
- if (!window.confirm(`Excluir categoria "${c}"?`)) return;
- await supabase.from("categorias").delete().eq("nome", c);
- setCategorias(prev => prev.filter(x => x !== c));
- setAdminMsg("Categoria excluída."); setTimeout(() => setAdminMsg(""), 3000);
- };
- // ── Admin – PIN ───────────────────────────────────────────
- const changePin = async () => {
- if (ep1.length < 4) { setAdminMsg("PIN deve ter pelo menos 4 dígitos."); return; }
- if (ep1 !== ep2) { setAdminMsg("PINs não coincidem."); return; }
- await savePin(ep1); setEp1(""); setEp2("");
- setAdminMsg("PIN alterado com sucesso!"); setTimeout(() => setAdminMsg(""), 3000);
- };
- // ── Filtered list ─────────────────────────────────────────
- const filtered = produtos.filter(p => {
- const matchesSearch =
- p.code.includes(search.toUpperCase()) ||
- (p.name || "").toLowerCase().includes(search.toLowerCase()) ||
- (p.shelf || "").toLowerCase().includes(search.toLowerCase());
- const matchesArea = !areaFilter || (p.shelf || "").toLowerCase().includes(areaFilter.toLowerCase());
- return matchesSearch && matchesArea;
- });
- // ── Admin – busca por código (aba Padrões) ─────────────────
- const apFiltered = produtos.filter(p => p.code.includes(apSearch.trim().toUpperCase()));
- if (!loaded) return (
- <div className="vlr" style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, color: C.muted, fontFamily: FM }}>
- <style>{CSS}</style>
- <div style={{ color: C.accent, animation: "vlrPulse 1.4s ease-in-out infinite" }}><Icon name="box" size={32} /></div>
- <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase" }}>Carregando…</div>
- </div>
- );
- // ══════════════════════════════════════════════════════════
- return (
- <div className="vlr" style={{
- minHeight: "100vh", background: C.bg, color: C.txt, fontFamily: FS,
- backgroundImage: `radial-gradient(1100px 480px at 75% -12%, rgba(37,99,235,0.06), transparent 60%), linear-gradient(rgba(27,36,49,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(27,36,49,0.035) 1px, transparent 1px)`,
- backgroundSize: "100% 100%, 34px 34px, 34px 34px",
- }}>
- <style>{CSS}</style>
- {/* Header */}
- <header style={{ borderBottom: `1px solid ${C.line}`, padding: "18px 28px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", background: "linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0))" }}>
- <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
- <div style={{ width: 42, height: 42, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #eef3fc, #e1ebf9)", border: `1px solid ${C.line2}`, color: C.accent, boxShadow: "0 1px 2px rgba(27,36,49,0.06)" }}>
- <Icon name="box" size={22} />
- </div>
- <div>
- <div style={{ fontFamily: FM, fontSize: 10, letterSpacing: 3, color: C.accent, textTransform: "uppercase", marginBottom: 4 }}>Vallourec</div>
- <div style={{ fontFamily: FS, fontSize: 19, fontWeight: 700, letterSpacing: 0.2, color: C.txt }}>Estoque de Tubo Padrão</div>
- </div>
- </div>
- <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3 }}>
- <span style={{ fontFamily: FS, fontSize: 10.5, color: C.muted, marginBottom: 2 }}>Desenvolvido por</span>
- <span style={{ fontFamily: FS, fontSize: 10, fontWeight: 600, letterSpacing: 0.4, color: C.accent, textTransform: "uppercase" }}>Emerson Santos</span>
- </div>
- </header>
- {/* ══ MAIN PAGE / MENU ══ */}
- {page === "home" && (
- <main style={{ padding: "34px 28px 48px", maxWidth: 1080, margin: "0 auto" }}>
- <div style={{ maxWidth: 720, marginBottom: 28 }}>
- <div style={{ fontFamily: FS, fontSize: 22, fontWeight: 700, letterSpacing: 0.2, color: C.txt, marginBottom: 8 }}>Painel de controle</div>
- <div style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.6 }}>
- Selecione uma opção para gerenciar o estoque de tubos padrão: registre uma movimentação,
- consulte a lista completa, acompanhe o histórico ou acesse a área administrativa.
- </div>
- </div>
- <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(258px, 1fr))", gap: 16 }}>
- <MenuCard tone="accent" icon="swap" title="Realizar movimentação de padrão"
- desc="Registre a transferência de um padrão entre locais — por leitura de QR Code ou seleção manual."
- cta="Movimentar" action={openMove} />
- <MenuCard icon="list" title="Lista de padrões"
- desc="Consulte todos os padrões cadastrados, com código, descrição, categoria e local de armazenamento."
- cta="Abrir lista" action={() => setPage("lista")} />
- <MenuCard icon="history" title="Histórico de movimentações"
- desc="Acompanhe todas as movimentações registradas, com origem, destino, responsável e data."
- cta="Ver histórico" action={() => setPage("historico")} />
- <MenuCard icon="key" title="Área do Administrador"
- desc="Gerencie padrões, locais, categorias e usuários, e altere o PIN. Acesso protegido por PIN."
- cta="Acessar" action={() => askPin(() => { setAdminMsg(""); setAdminTab("produtos"); startAddProd(); setPage("admin"); })} />
- </div>
- </main>
- )}
- {/* ══ PÁGINA: LISTA DE PADRÕES ══ */}
- {page === "lista" && (
- <main style={{ padding: "20px 28px 32px", maxWidth: 1200, margin: "0 auto" }}>
- <PageHead icon="list" title="Lista de padrões" onBack={() => setPage("home")} size={23} />
- <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
- <span style={S.tag(C.accent)}>{filtered.length} padrões cadastrados</span>
- <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
- <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: C.muted2, pointerEvents: "none", display: "flex" }}><Icon name="search" size={16} /></span>
- <input value={search} onChange={e => setSearch(e.target.value)}
- placeholder="Buscar por código, nome ou local…" style={{ ...S.input, paddingLeft: 38 }} />
- </div>
- <button className="btn-primary" onClick={openMove} style={{
- display: "inline-flex", alignItems: "center", gap: 8, background: C.accent, color: "#ffffff", border: "none", borderRadius: 9,
- padding: "0 18px", height: 40, cursor: "pointer", fontFamily: FS, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
- }}><Icon name="swap" size={16} /> Realizar movimentação</button>
- </div>
- <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
- {AREA_TAGS.map(tag => {
- const on = areaFilter === tag;
- return (
- <button key={tag} onClick={() => setAreaFilter(on ? null : tag)} style={{
- fontFamily: FM, fontSize: 11.5, letterSpacing: 0.5, padding: "6px 14px", borderRadius: 999,
- border: `1px solid ${on ? C.accent : C.line}`,
- background: on ? C.accent : C.panel2,
- color: on ? "#ffffff" : C.muted,
- cursor: "pointer", fontWeight: on ? 600 : 500,
- }}>{tag}</button>
- );
- })}
- {areaFilter && (
- <button onClick={() => setAreaFilter(null)} style={{
- display: "inline-flex", alignItems: "center", gap: 5, fontFamily: FM, fontSize: 11, letterSpacing: 0.5,
- padding: "6px 12px", borderRadius: 999, border: `1px solid ${C.line}`, background: "transparent",
- color: C.muted2, cursor: "pointer",
- }}><Icon name="close" size={12} /> Limpar filtro</button>
- )}
- </div>
- {filtered.length === 0
- ? <div style={{ textAlign: "center", color: C.muted2, padding: "64px 0", fontSize: 13.5, fontFamily: FM }}>
- {produtos.length === 0 ? "Nenhum padrão cadastrado." : "Nenhum resultado."}
- </div>
- : <div style={{ border: `1px solid ${C.line}`, borderRadius: 14, overflow: "hidden", background: C.panel2 }}>
- <div className="table-scroll" style={{ overflow: "auto", maxHeight: "calc(100vh - 260px)" }}>
- <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
- <thead>
- <tr>
- {["Código", "Descrição", "Categoria do padrão", "Local de armazenamento"].map(h => (
- <th key={h} style={{ textAlign: "left", padding: "13px 14px", color: C.muted2, fontWeight: 500, letterSpacing: 1, fontSize: 10, textTransform: "uppercase", fontFamily: FM, whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: C.panel, boxShadow: `inset 0 -1px 0 ${C.line2}` }}>{h}</th>
- ))}
- </tr>
- </thead>
- <tbody>
- {filtered.map((p, i) => (
- <tr key={p.code} className="row-hover" style={{ background: i % 2 === 0 ? "transparent" : "rgba(27,36,49,0.022)" }}>
- <td style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}`, fontFamily: FS, fontSize: 13, fontWeight: 600, color: C.accent, letterSpacing: 0.3 }}>{p.code}</td>
- <td style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}`, fontFamily: FS, fontSize: 13, color: C.muted }}>{p.name || <Em />}</td>
- <td style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}`, fontFamily: FS, fontSize: 13, color: C.muted }}>{p.category || <Em />}</td>
- <td style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}` }}><span style={{ ...S.tag(C.loc), fontFamily: FS }}><Icon name="pin" size={12} />{p.shelf}</span></td>
- </tr>
- ))}
- </tbody>
- </table>
- </div>
- </div>
- }
- </main>
- )}
- {/* ══ PÁGINA: HISTÓRICO DE MOVIMENTAÇÕES ══ */}
- {page === "historico" && (
- <main style={{ padding: "20px 28px 32px", maxWidth: 1200, margin: "0 auto" }}>
- <PageHead icon="history" title="Histórico de movimentações" onBack={() => setPage("home")} />
- <div style={{ marginBottom: 16, color: C.muted2, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", fontFamily: FM }}>
- {historico.length} {historico.length === 1 ? "movimentação registrada" : "movimentações registradas"}
- </div>
- {historico.length === 0
- ? <div style={{ textAlign: "center", color: C.muted2, padding: "64px 0", fontSize: 13.5, fontFamily: FM }}>Nenhuma movimentação registrada.</div>
- : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
- {historico.map(h => (
- <div key={h.id} className="card-hover" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: "13px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FM, fontSize: 13 }}>
- <span style={{ fontFamily: FM, fontSize: 13, color: C.accent, fontWeight: 600, letterSpacing: 0.5, minWidth: 72 }}>{h.code}</span>
- <span style={S.tag(C.loc)}>{h.de}</span>
- <Icon name="arrowR" size={15} color={C.muted2} />
- <span style={S.tag(C.ok)}>{h.para}</span>
- <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 13, fontFamily: FM, marginLeft: "auto" }}><Icon name="user" size={14} />{h.responsavel}</span>
- <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted2, fontSize: 12.5, fontFamily: FM }}><Icon name="clock" size={13} />{fmt(h.data)}</span>
- </div>
- ))}
- </div>
- }
- </main>
- )}
- {/* ══ MODAL: MOVIMENTAÇÃO WIZARD ══ */}
- {showMove && <Modal title={<><Icon name="swap" size={18} color={C.accent} /> Realizar movimentação</>} onClose={closeMove}>
- <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
- {[["1", "Padrão"], ["2", "Local"], ["3", "Responsável"]].map(([n, l], i) => {
- const active = mvStep === i + 1, done = mvStep > i + 1;
- const col = done ? C.ok : active ? C.accent : C.muted2;
- return (
- <div key={n} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", borderRadius: 9, fontSize: 11, fontFamily: FS, letterSpacing: 0.5,
- background: done ? `${C.ok}12` : active ? `${C.accent}12` : C.panel2,
- border: `1px solid ${done ? `${C.ok}3a` : active ? `${C.accent}55` : C.line}`,
- color: col, fontWeight: active ? 600 : 400,
- }}>{done ? <Icon name="check" size={13} /> : <span>{n}.</span>}{l}</div>
- );
- })}
- </div>
- {mvStep === 1 && <>
- <div style={{ color: C.muted, fontSize: 12.5, marginBottom: 12, lineHeight: 1.5 }}>Escaneie o QR Code do padrão ou digite o código manualmente.</div>
- <Lbl>Código do padrão *</Lbl>
- <input value={mvProdInput} onChange={e => setMvProdInput(e.target.value.toUpperCase())}
- placeholder="EC001" maxLength={7} style={S.input} onKeyDown={e => e.key === "Enter" && mvStep1Next()} />
- {mvError && <Err>{mvError}</Err>}
- <video ref={videoRef} style={{ width: "100%", borderRadius: 10, background: "#000", display: mvScanActive ? "block" : "none", maxHeight: 220, marginTop: 12, border: `1px solid ${C.line}` }} playsInline muted />
- {!mvScanActive
- ? <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.panel2, border: `1px dashed ${C.line2}`, borderRadius: 10, height: 52, color: C.muted2, fontSize: 12, marginTop: 8, cursor: "pointer", fontFamily: FM }} onClick={scanStep1}><Icon name="camera" size={16} /> Toque para escanear QR Code</div>
- : <button onClick={stopScan} style={{ marginTop: 8, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: `${C.signal}14`, color: C.signal, border: `1px solid ${C.signal}40`, borderRadius: 9, padding: "9px", cursor: "pointer", fontFamily: FS, fontSize: 12.5 }}><Icon name="stop" size={14} /> Parar câmera</button>
- }
- <Row><Btn2 onClick={closeMove}>Cancelar</Btn2><Btn1 onClick={mvStep1Next}>Próximo <Icon name="arrowR" size={15} /></Btn1></Row>
- </>}
- {mvStep === 2 && <>
- <div style={{ background: `${C.ok}10`, border: `1px solid ${C.ok}33`, borderRadius: 10, padding: "11px 13px", marginBottom: 12, fontSize: 12.5, display: "flex", alignItems: "flex-start", gap: 8 }}>
- <Icon name="check" size={16} color={C.ok} style={{ marginTop: 2 }} />
- <div>
- Padrão: <strong style={{ color: C.accent, fontFamily: FM }}>{mvProdObj?.code}</strong>
- {mvProdObj?.name && <span style={{ color: C.muted }}> — {mvProdObj.name}</span>}
- <div style={{ color: C.muted2, fontSize: 11, marginTop: 3, fontFamily: FM }}>Local atual: {mvProdObj?.shelf}</div>
- </div>
- </div>
- <div style={{ color: C.muted, fontSize: 12.5, marginBottom: 12, lineHeight: 1.5 }}>Escaneie o QR Code do local de destino ou selecione manualmente.</div>
- <Lbl>Local de armazenamento de destino *</Lbl>
- <Select value={mvLocalInput} onChange={e => setMvLocalInput(e.target.value)} placeholder="Selecione o local" options={locais} />
- {mvError && <Err>{mvError}</Err>}
- <video ref={videoRef} style={{ width: "100%", borderRadius: 10, background: "#000", display: mvScanActive ? "block" : "none", maxHeight: 220, marginTop: 12, border: `1px solid ${C.line}` }} playsInline muted />
- {!mvScanActive
- ? <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.panel2, border: `1px dashed ${C.line2}`, borderRadius: 10, height: 52, color: C.muted2, fontSize: 12, marginTop: 8, cursor: "pointer", fontFamily: FM }} onClick={scanStep2}><Icon name="camera" size={16} /> Toque para escanear QR Code</div>
- : <button onClick={stopScan} style={{ marginTop: 8, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: `${C.signal}14`, color: C.signal, border: `1px solid ${C.signal}40`, borderRadius: 9, padding: "9px", cursor: "pointer", fontFamily: FS, fontSize: 12.5 }}><Icon name="stop" size={14} /> Parar câmera</button>
- }
- <Row><Btn2 onClick={() => { stopScan(); setMvStep(1); setMvError(""); }}><Icon name="arrowL" size={15} /> Voltar</Btn2><Btn1 onClick={mvStep2Next}>Próximo <Icon name="arrowR" size={15} /></Btn1></Row>
- </>}
- {mvStep === 3 && <>
- <div style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "13px 14px", marginBottom: 14, fontSize: 12.5 }}>
- <div style={{ marginBottom: 8 }}>Padrão: <strong style={{ color: C.accent, fontFamily: FM }}>{mvProdObj?.code}</strong>{mvProdObj?.name && <span style={{ color: C.muted }}> — {mvProdObj.name}</span>}</div>
- <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
- <span style={{ color: C.muted2 }}>De</span><span style={S.tag(C.loc)}>{mvProdObj?.shelf}</span>
- <Icon name="arrowR" size={15} color={C.muted2} />
- <span style={{ color: C.muted2 }}>Para</span><span style={S.tag(C.ok)}>{mvLocalInput}</span>
- </div>
- </div>
- <Lbl>Responsável pela movimentação *</Lbl>
- <Select value={mvRespInput} onChange={e => setMvRespInput(e.target.value)} placeholder="Selecione o responsável" options={resps} />
- {mvError && <Err>{mvError}</Err>}
- <Row>
- <Btn2 onClick={() => { setMvStep(2); setMvError(""); }}><Icon name="arrowL" size={15} /> Voltar</Btn2>
- <Btn1 onClick={mvStep3Confirm}><Icon name="check" size={15} /> Confirmar</Btn1>
- </Row>
- </>}
- </Modal>}
- {/* ══ MODAL: PIN GATE ══ */}
- {showPinGate && <Modal title={<><Icon name="lock" size={18} color={C.accent} /> Área restrita</>} onClose={() => setShowPinGate(false)}>
- <div style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>Digite o PIN de administrador:</div>
- <input type="password" inputMode="numeric" maxLength={8} value={pinInput}
- onChange={e => setPinInput(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmPin()}
- placeholder="••••" style={{ ...S.input, fontSize: 22, letterSpacing: 8, textAlign: "center" }} />
- {pinError && <Err>{pinError}</Err>}
- <Row><Btn2 onClick={() => setShowPinGate(false)}>Cancelar</Btn2><Btn1 onClick={confirmPin}>Entrar</Btn1></Row>
- </Modal>}
- {/* ══ MODAL: ADMIN ══ */}
- {page === "admin" && (
- <main style={{ padding: "20px 28px 40px", maxWidth: 860, margin: "0 auto" }}>
- <PageHead icon="sliders" title="Área do Administrador" onBack={() => setPage("home")} />
- <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
- {[["produtos", "Padrões", "box"], ["locais", "Locais", "pin"], ["categorias", "Categorias", "tag"], ["responsaveis", "Usuários", "user"], ["pin", "PIN", "key"]].map(([t, l, ic]) => {
- const on = adminTab === t;
- return (
- <button key={t} onClick={() => { setAdminTab(t); setAdminMsg(""); }}
- style={{ flex: 1, minWidth: 84, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "9px 4px", border: `1px solid ${on ? `${C.accent}55` : C.line}`, borderRadius: 10, cursor: "pointer", fontFamily: FM, fontSize: 10.5, letterSpacing: 0.5,
- background: on ? `${C.accent}12` : C.panel2, color: on ? C.accent : C.muted2, fontWeight: on ? 600 : 400,
- }}><Icon name={ic} size={16} />{l}</button>
- );
- })}
- </div>
- {/* Produtos */}
- {adminTab === "produtos" && <>
- <div style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
- <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12, fontWeight: 600, fontFamily: FM }}>
- <Icon name={apEdit ? "edit" : "plus"} size={14} />{apEdit ? "Editar padrão" : "Novo padrão"}
- </div>
- <Lbl>Código *</Lbl>
- <input value={apCode} onChange={e => setApCode(e.target.value)} placeholder="EC001" maxLength={7} style={S.input} disabled={!!apEdit} />
- <Lbl>Descrição *</Lbl>
- <input value={apName} onChange={e => setApName(e.target.value)} placeholder="Ex: 244.48 x 13.84" style={S.input} />
- <Lbl>Categoria do padrão *</Lbl>
- <Select value={apCat} onChange={e => setApCat(e.target.value)} placeholder="Selecione a categoria" options={categorias} />
- <Lbl>Local de armazenamento *</Lbl>
- <Select value={apLocal} onChange={e => setApLocal(e.target.value)} placeholder="Selecione o local" options={locais} />
- {apError && <Err>{apError}</Err>}
- <Row>
- {apEdit && <Btn2 onClick={startAddProd}>Cancelar edição</Btn2>}
- <Btn1 onClick={saveProd}><Icon name={apEdit ? "save" : "plus"} size={15} /> {apEdit ? "Salvar" : "Cadastrar"}</Btn1>
- </Row>
- </div>
- <div style={{ position: "relative", marginBottom: 10 }}>
- <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: C.muted2, pointerEvents: "none", display: "flex" }}><Icon name="search" size={16} /></span>
- <input value={apSearch} onChange={e => setApSearch(e.target.value.toUpperCase())}
- placeholder="Buscar por código EC…" style={{ ...S.input, paddingLeft: 38 }} />
- </div>
- <div style={{ maxHeight: 380, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
- {apFiltered.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>{produtos.length === 0 ? "Nenhum padrão cadastrado." : "Nenhum resultado."}</div>}
- {apFiltered.map(p => (
- <div key={p.code} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5, gap: 8 }}>
- <div style={{ flex: 1, minWidth: 0 }}>
- <span style={{ color: C.accent, fontWeight: 600, fontFamily: FM }}>{p.code}</span>
- {p.name && <span style={{ color: C.muted }}> — {p.name}</span>}
- <div style={{ display: "flex", alignItems: "center", gap: 5, color: C.muted2, fontSize: 11, marginTop: 3, fontFamily: FM }}><Icon name="pin" size={12} />{p.shelf}</div>
- </div>
- <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
- <IconBtn onClick={() => startEditProd(p)} color={C.accent}><Icon name="edit" size={14} /></IconBtn>
- <IconBtn onClick={() => deleteProd(p.code)} color={C.signal}><Icon name="trash" size={14} /></IconBtn>
- </div>
- </div>
- ))}
- </div>
- </>}
- {/* Locais */}
- {adminTab === "locais" && <>
- <div style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
- <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10, fontWeight: 600, fontFamily: FM }}>
- <Icon name={alEdit ? "edit" : "plus"} size={14} />{alEdit ? "Editar local" : "Novo local"}
- </div>
- <Lbl>Nome do local *</Lbl>
- <input value={alVal} onChange={e => setAlVal(e.target.value)} placeholder="Ex: Estaleiro 1" style={S.input} />
- <Row>
- {alEdit && <Btn2 onClick={() => { setAlEdit(null); setAlVal(""); }}>Cancelar</Btn2>}
- <Btn1 onClick={saveLocal}><Icon name={alEdit ? "save" : "plus"} size={15} /> {alEdit ? "Salvar" : "Adicionar"}</Btn1>
- </Row>
- </div>
- <div style={{ maxHeight: 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
- {locais.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>Nenhum local cadastrado.</div>}
- {locais.map(l => (
- <div key={l} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5 }}>
- <span style={{ display: "flex", alignItems: "center", gap: 7, color: C.loc }}><Icon name="pin" size={14} /> {l}</span>
- <div style={{ display: "flex", gap: 6 }}>
- <IconBtn onClick={() => { setAlEdit(l); setAlVal(l); }} color={C.accent}><Icon name="edit" size={14} /></IconBtn>
- <IconBtn onClick={() => deleteLocal(l)} color={C.signal}><Icon name="trash" size={14} /></IconBtn>
- </div>
- </div>
- ))}
- </div>
- </>}
- {/* Categorias */}
- {adminTab === "categorias" && <>
- <div style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
- <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10, fontWeight: 600, fontFamily: FM }}>
- <Icon name={acEdit ? "edit" : "plus"} size={14} />{acEdit ? "Editar categoria" : "Nova categoria"}
- </div>
- <Lbl>Nome da categoria *</Lbl>
- <input value={acVal} onChange={e => setAcVal(e.target.value)} placeholder="Ex: Ultrassom" style={S.input} />
- <Row>
- {acEdit && <Btn2 onClick={() => { setAcEdit(null); setAcVal(""); }}>Cancelar</Btn2>}
- <Btn1 onClick={saveCat}><Icon name={acEdit ? "save" : "plus"} size={15} /> {acEdit ? "Salvar" : "Adicionar"}</Btn1>
- </Row>
- </div>
- <div style={{ maxHeight: 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
- {categorias.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>Nenhuma categoria cadastrada.</div>}
- {categorias.map(c => (
- <div key={c} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5 }}>
- <span style={{ display: "flex", alignItems: "center", gap: 7, color: C.warn }}><Icon name="tag" size={14} /> {c}</span>
- <div style={{ display: "flex", gap: 6 }}>
- <IconBtn onClick={() => { setAcEdit(c); setAcVal(c); }} color={C.accent}><Icon name="edit" size={14} /></IconBtn>
- <IconBtn onClick={() => deleteCat(c)} color={C.signal}><Icon name="trash" size={14} /></IconBtn>
- </div>
- </div>
- ))}
- </div>
- </>}
- {/* Usuários */}
- {adminTab === "responsaveis" && <>
- <div style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
- <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10, fontWeight: 600, fontFamily: FM }}>
- <Icon name={arEdit ? "edit" : "plus"} size={14} />{arEdit ? "Editar usuário" : "Novo usuário"}
- </div>
- <Lbl>Nome *</Lbl>
- <input value={arVal} onChange={e => setArVal(e.target.value)} placeholder="Ex: 701234 - Nome Sobrenome" style={S.input} />
- <Row>
- {arEdit && <Btn2 onClick={() => { setArEdit(null); setArVal(""); }}>Cancelar</Btn2>}
- <Btn1 onClick={saveResp}><Icon name={arEdit ? "save" : "plus"} size={15} /> {arEdit ? "Salvar" : "Adicionar"}</Btn1>
- </Row>
- </div>
- <div style={{ maxHeight: 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
- {resps.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>Nenhum usuário cadastrado.</div>}
- {resps.map(r => (
- <div key={r} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5 }}>
- <span style={{ display: "flex", alignItems: "center", gap: 7, color: C.txt }}><Icon name="user" size={14} color={C.accent} /> {r}</span>
- <div style={{ display: "flex", gap: 6 }}>
- <IconBtn onClick={() => { setArEdit(r); setArVal(r); }} color={C.accent}><Icon name="edit" size={14} /></IconBtn>
- <IconBtn onClick={() => deleteResp(r)} color={C.signal}><Icon name="trash" size={14} /></IconBtn>
- </div>
- </div>
- ))}
- </div>
- </>}
- {/* PIN */}
- {adminTab === "pin" && <>
- <div style={{ color: C.muted, fontSize: 12.5, marginBottom: 14, lineHeight: 1.6 }}>Altere o PIN de administrador (mínimo 4 dígitos).<br />PIN padrão inicial: <strong style={{ color: C.txt, fontFamily: FM }}>1234</strong></div>
- <Lbl>Novo PIN</Lbl>
- <input type="password" inputMode="numeric" value={ep1} onChange={e => setEp1(e.target.value)} placeholder="••••" style={S.input} />
- <Lbl>Confirmar PIN</Lbl>
- <input type="password" inputMode="numeric" value={ep2} onChange={e => setEp2(e.target.value)} placeholder="••••" style={S.input} />
- <div style={{ marginTop: 14 }}><Btn1 onClick={changePin}><Icon name="save" size={15} /> Salvar novo PIN</Btn1></div>
- </>}
- {adminMsg && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 14, color: C.ok, fontSize: 12.5, textAlign: "center", background: `${C.ok}12`, border: `1px solid ${C.ok}33`, borderRadius: 9, padding: "9px" }}><Icon name="check" size={14} />{adminMsg}</div>}
- </main>
- )}
- </div>
- );
+  const [loaded, setLoaded]         = useState(false);
+  const [page, setPage]             = useState("home");
+  const [produtos, setProdutos]     = useState([]);
+  const [historico, setHistorico]   = useState([]);
+  const [locais, setLocais]         = useState([]);
+  const [resps, setResps]           = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [pin, setPin]               = useState(DEFAULT_PIN);
+  const [search, setSearch]         = useState("");
+  const [areaFilter, setAreaFilter] = useState(null);
+
+  // login / sessão do usuário
+  const [authedUser, setAuthedUser]   = useState(null); // { pn, nome }
+  const [loginPn, setLoginPn]         = useState("");
+  const [loginSenha, setLoginSenha]   = useState("");
+  const [loginErr, setLoginErr]       = useState("");
+
+  // troca obrigatória de senha (1º acesso / senha redefinida)
+  const [forceChangePw, setForceChangePw] = useState(false);
+  const [npw1, setNpw1] = useState("");
+  const [npw2, setNpw2] = useState("");
+  const [pwErr, setPwErr] = useState("");
+
+  // modals
+  const [showMove, setShowMove]       = useState(false);
+  const [showPinGate, setShowPinGate] = useState(false);
+  const [pinInput, setPinInput]       = useState("");
+  const [pinError, setPinError]       = useState("");
+  const [pinTarget, setPinTarget]     = useState(null);
+
+  // movimentação wizard
+  const [mvStep, setMvStep]             = useState(1);
+  const [mvProdInput, setMvProdInput]   = useState("");
+  const [mvProdObj, setMvProdObj]       = useState(null);
+  const [mvLocalInput, setMvLocalInput] = useState("");
+  const [mvError, setMvError]           = useState("");
+  const [mvScanActive, setMvScanActive] = useState(false);
+  const videoRef  = useRef(null);
+  const streamRef = useRef(null);
+  const scanTimer = useRef(null);
+
+  // admin
+  const [adminTab, setAdminTab] = useState("produtos");
+  const [adminMsg, setAdminMsg] = useState("");
+  const [apCode, setApCode]   = useState("");
+  const [apName, setApName]   = useState("");
+  const [apCat,  setApCat]    = useState("");
+  const [apLocal, setApLocal] = useState("");
+  const [apEdit, setApEdit]   = useState(null);
+  const [apError, setApError] = useState("");
+  const [apSearch, setApSearch] = useState("");
+  const [alVal, setAlVal]     = useState("");
+  const [alEdit, setAlEdit]   = useState(null);
+  const [arPn, setArPn]       = useState("");
+  const [arNome, setArNome]   = useState("");
+  const [arEdit, setArEdit]   = useState(null);
+  const [arError, setArError] = useState("");
+  const [acVal, setAcVal]     = useState("");
+  const [acEdit, setAcEdit]   = useState(null);
+  const [ep1, setEp1]         = useState("");
+  const [ep2, setEp2]         = useState("");
+
+  // ── Load from Supabase ────────────────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      const [
+        { data: prods },
+        { data: hist },
+        { data: locs },
+        { data: rs },
+        { data: cats },
+      ] = await Promise.all([
+        supabase.from("produtos").select("*").order("created_at", { ascending: true }),
+        supabase.from("historico").select("*").order("data", { ascending: false }),
+        supabase.from("locais").select("*"),
+        supabase.from("responsaveis").select("*"),
+        supabase.from("categorias").select("*"),
+      ]);
+      setProdutos(prods || []);
+      setHistorico(hist || []);
+      setLocais((locs || []).map(l => l.nome));
+      setResps(rs || []);
+      setCategorias((cats || []).map(c => c.nome));
+
+      // restaura sessão do usuário (PN) salva localmente
+      const savedPn = localStorage.getItem("vlr-user-pn");
+      if (savedPn) {
+        const u = (rs || []).find(r => r.pn === savedPn);
+        if (u) setAuthedUser({ pn: u.pn, nome: u.nome });
+      }
+
+      // PIN lido do Supabase (sincronizado entre dispositivos)
+      const { data: configPin } = await supabase
+        .from("configuracoes")
+        .select("valor")
+        .eq("chave", "pin")
+        .maybeSingle();
+
+      if (configPin?.valor) {
+        setPin(configPin.valor);
+        localStorage.setItem("est-pin", configPin.valor);
+      } else {
+        const savedPin = localStorage.getItem("est-pin");
+        if (savedPin) setPin(savedPin);
+      }
+
+      setLoaded(true);
+    };
+    load();
+  }, []);
+
+  // ── PIN ───────────────────────────────────────────────────
+  const savePin = async (p) => {
+    setPin(p);
+    localStorage.setItem("est-pin", p);
+    await supabase
+      .from("configuracoes")
+      .upsert({ chave: "pin", valor: p }, { onConflict: "chave" });
+  };
+
+  const askPin = (fn) => { setPinTarget(() => fn); setPinInput(""); setPinError(""); setShowPinGate(true); };
+  const confirmPin = () => {
+    if (pinInput === pin) { setShowPinGate(false); pinTarget && pinTarget(); }
+    else { setPinError("PIN incorreto"); setPinInput(""); }
+  };
+
+  // ── Login do usuário (PN + senha) ──────────────────────────
+  const login = () => {
+    setLoginErr("");
+    const pn = loginPn.trim();
+    if (!pn) { setLoginErr("Informe o PN."); return; }
+    if (!/^\d{4}$/.test(loginSenha)) { setLoginErr("A senha deve ter 4 dígitos."); return; }
+    const user = resps.find(r => r.pn === pn);
+    if (!user) { setLoginErr("PN não encontrado."); return; }
+    if ((user.senha || DEFAULT_USER_PASSWORD) !== loginSenha) { setLoginErr("Senha incorreta."); return; }
+
+    setAuthedUser({ pn: user.pn, nome: user.nome });
+    localStorage.setItem("vlr-user-pn", user.pn);
+    setLoginPn(""); setLoginSenha("");
+    if ((user.senha || DEFAULT_USER_PASSWORD) === DEFAULT_USER_PASSWORD) {
+      setNpw1(""); setNpw2(""); setPwErr("");
+      setForceChangePw(true);
+    }
+  };
+
+  const logout = () => {
+    setAuthedUser(null);
+    localStorage.removeItem("vlr-user-pn");
+    setPage("home");
+  };
+
+  const changeUserPassword = async () => {
+    setPwErr("");
+    if (!/^\d{4}$/.test(npw1)) { setPwErr("A nova senha deve ter 4 dígitos."); return; }
+    if (npw1 !== npw2) { setPwErr("As senhas não coincidem."); return; }
+    await supabase.from("responsaveis").update({ senha: npw1 }).eq("pn", authedUser.pn);
+    setResps(prev => prev.map(r => r.pn === authedUser.pn ? { ...r, senha: npw1 } : r));
+    setNpw1(""); setNpw2(""); setForceChangePw(false);
+  };
+
+  // ── QR Scanner ────────────────────────────────────────────
+  const stopScan = () => {
+    clearInterval(scanTimer.current);
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    setMvScanActive(false);
+  };
+
+  const startScan = async (onResult) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play(); // ← Bug 1 corrigido: aguarda o vídeo iniciar
+      }
+      setMvScanActive(true);
+      const handle = (text) => { stopScan(); onResult(text.trim()); };
+
+      if ("BarcodeDetector" in window) {
+        const bd = new BarcodeDetector({ formats: ["qr_code"] });
+        scanTimer.current = setInterval(async () => {
+          try {
+            if (!videoRef.current?.videoWidth) return; // ← Bug 2 corrigido
+            const c = await bd.detect(videoRef.current);
+            if (c.length > 0) handle(c[0].rawValue);
+          } catch (_) {}
+        }, 300);
+      } else {
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        scanTimer.current = setInterval(() => {
+          if (!videoRef.current?.videoWidth) return;
+          canvas.width = videoRef.current.videoWidth;
+          canvas.height = videoRef.current.videoHeight;
+          ctx.drawImage(videoRef.current, 0, 0);
+          const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(img.data, img.width, img.height);
+          if (code) handle(code.data);
+        }, 300);
+      }
+    } catch (e) {
+      alert("Câmera indisponível: " + e.message);
+    }
+  };
+
+  useEffect(() => () => stopScan(), []);
+
+  // ── Movimentação ──────────────────────────────────────────
+  const openMove = () => {
+    setMvStep(1); setMvProdInput(""); setMvProdObj(null);
+    setMvLocalInput(""); setMvError("");
+    stopScan(); setShowMove(true);
+  };
+  const closeMove = () => { stopScan(); setShowMove(false); };
+
+  const mvStep1Next = () => {
+    setMvError("");
+    const code = mvProdInput.toUpperCase().trim();
+    if (!validCode(code)) { setMvError("Código inválido. Use o formato EC + 3 a 5 números"); return; }
+    const prod = produtos.find(p => p.code === code);
+    if (!prod) { setMvError("Padrão não encontrado"); return; }
+    setMvProdObj(prod); setMvStep(2);
+  };
+
+  const mvConfirm = async () => {
+    setMvError("");
+    const loc = mvLocalInput.trim();
+    if (!loc) { setMvError("Selecione ou escaneie o local de destino"); return; }
+    if (!locais.includes(loc)) { setMvError("Local não reconhecido"); return; }
+    if (loc === mvProdObj.shelf) { setMvError("O padrão já está neste local"); return; }
+
+    const now = new Date().toISOString();
+    const evento = {
+      id: Date.now(),
+      code: mvProdObj.code,
+      de: mvProdObj.shelf,
+      para: loc,
+      responsavel: authedUser.nome,
+      data: now,
+    };
+
+    // Salva histórico no Supabase
+    await supabase.from("historico").insert([evento]);
+
+    // Atualiza shelf do produto no Supabase
+    await supabase.from("produtos").update({ shelf: loc }).eq("code", mvProdObj.code);
+
+    // Atualiza estado local
+    setProdutos(prev => prev.map(p => p.code === mvProdObj.code ? { ...p, shelf: loc } : p));
+    setHistorico(prev => [evento, ...prev]);
+
+    stopScan();
+    setMvStep(1); setMvProdInput(""); setMvProdObj(null);
+    setMvLocalInput(""); setMvError("");
+    setShowMove(false);
+  };
+
+  const scanStep1 = () => startScan((val) => {
+    const code = val.toUpperCase();
+    if (!validCode(code)) { setMvError("QR inválido: esperado EC + 3 a 5 números"); return; }
+    const prod = produtos.find(p => p.code === code);
+    if (!prod) { setMvError("Padrão não encontrado: " + code); return; }
+    setMvProdInput(code); setMvProdObj(prod); setMvStep(2);
+  });
+
+  const scanStep2 = () => startScan((val) => {
+    if (!locais.includes(val)) { setMvError("Local não reconhecido: " + val); return; }
+    setMvLocalInput(val);
+  });
+
+  // ── Admin – Produtos ──────────────────────────────────────
+  const startAddProd  = () => { setApEdit(null); setApCode(""); setApName(""); setApCat(""); setApLocal(""); setApError(""); };
+  const startEditProd = (p) => { setApEdit(p); setApCode(p.code); setApName(p.name || ""); setApCat(p.category || ""); setApLocal(p.shelf || ""); setApError(""); };
+
+  const saveProd = async () => {
+    setApError("");
+    const code = apCode.toUpperCase().trim();
+    if (!validCode(code))                           { setApError("Código deve ser EC + 3 a 5 números"); return; }
+    if (!apName.trim())                             { setApError("Informe a descrição."); return; }
+    if (!apCat)                                     { setApError("Selecione a categoria do padrão."); return; }
+    if (!apLocal)                                   { setApError("Selecione o local de armazenamento"); return; }
+    if (!apEdit && produtos.find(p => p.code === code)) { setApError("Padrão já cadastrado"); return; }
+
+    if (apEdit) {
+      await supabase.from("produtos").update({ code, name: apName.trim(), category: apCat, shelf: apLocal }).eq("code", apEdit.code);
+      setProdutos(prev => prev.map(p => p.code === apEdit.code ? { ...p, code, name: apName.trim(), category: apCat, shelf: apLocal } : p));
+    } else {
+      const novo = { code, name: apName.trim(), category: apCat, shelf: apLocal, created_at: new Date().toISOString() };
+      await supabase.from("produtos").insert([novo]);
+      setProdutos(prev => [...prev, novo]);
+    }
+
+    setApEdit(null); setApCode(""); setApName(""); setApCat(""); setApLocal(""); setApError("");
+    setAdminMsg(apEdit ? "Padrão atualizado!" : "Padrão cadastrado!"); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  const deleteProd = async (code) => {
+    if (!window.confirm(`Excluir padrão ${code}?`)) return;
+    await supabase.from("produtos").delete().eq("code", code);
+    setProdutos(prev => prev.filter(p => p.code !== code));
+    setAdminMsg("Padrão excluído."); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  // ── Admin – Locais ────────────────────────────────────────
+  const saveLocal = async () => {
+    const v = alVal.trim();
+    if (!v) { setAdminMsg("Nome inválido."); return; }
+    if (!alEdit && locais.includes(v)) { setAdminMsg("Local já existe."); return; }
+
+    if (alEdit) {
+      await supabase.from("locais").update({ nome: v }).eq("nome", alEdit);
+      await supabase.from("produtos").update({ shelf: v }).eq("shelf", alEdit);
+      setLocais(prev => prev.map(l => l === alEdit ? v : l));
+      setProdutos(prev => prev.map(p => p.shelf === alEdit ? { ...p, shelf: v } : p));
+    } else {
+      await supabase.from("locais").insert([{ nome: v }]);
+      setLocais(prev => [...prev, v]);
+    }
+
+    setAlVal(""); setAlEdit(null);
+    setAdminMsg(alEdit ? "Local atualizado!" : "Local adicionado!"); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  const deleteLocal = async (l) => {
+    if (!window.confirm(`Excluir local "${l}"?`)) return;
+    await supabase.from("locais").delete().eq("nome", l);
+    setLocais(prev => prev.filter(x => x !== l));
+    setAdminMsg("Local excluído."); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  // ── Admin – Responsáveis (PN + senha) ──────────────────────
+  const startAddResp  = () => { setArEdit(null); setArPn(""); setArNome(""); setArError(""); };
+  const startEditResp = (r) => { setArEdit(r); setArPn(r.pn || ""); setArNome(r.nome || ""); setArError(""); };
+
+  const saveResp = async () => {
+    setArError("");
+    const pn = arPn.trim();
+    const nome = arNome.trim();
+    if (!pn)   { setArError("Informe o PN."); return; }
+    if (!nome) { setArError("Informe o nome e sobrenome."); return; }
+    if (!arEdit && resps.find(r => r.pn === pn)) { setArError("PN já cadastrado."); return; }
+
+    if (arEdit) {
+      await supabase.from("responsaveis").update({ pn, nome }).eq("pn", arEdit.pn);
+      setResps(prev => prev.map(r => r.pn === arEdit.pn ? { ...r, pn, nome } : r));
+      if (authedUser?.pn === arEdit.pn) setAuthedUser({ pn, nome });
+    } else {
+      const novo = { pn, nome, senha: DEFAULT_USER_PASSWORD };
+      await supabase.from("responsaveis").insert([novo]);
+      setResps(prev => [...prev, novo]);
+    }
+
+    setArPn(""); setArNome(""); setArEdit(null);
+    setAdminMsg(arEdit ? "Usuário atualizado!" : "Usuário adicionado!"); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  const deleteResp = async (pn) => {
+    if (!window.confirm(`Excluir usuário PN ${pn}?`)) return;
+    await supabase.from("responsaveis").delete().eq("pn", pn);
+    setResps(prev => prev.filter(r => r.pn !== pn));
+    setAdminMsg("Usuário excluído."); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  const resetRespPassword = async (pn) => {
+    if (!window.confirm("Redefinir a senha deste usuário para o padrão (1234)?")) return;
+    await supabase.from("responsaveis").update({ senha: DEFAULT_USER_PASSWORD }).eq("pn", pn);
+    setResps(prev => prev.map(r => r.pn === pn ? { ...r, senha: DEFAULT_USER_PASSWORD } : r));
+    setAdminMsg("Senha redefinida para o padrão (1234)."); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  // ── Admin – Categorias ────────────────────────────────────
+  const saveCat = async () => {
+    const v = acVal.trim();
+    if (!v) { setAdminMsg("Nome inválido."); return; }
+    if (!acEdit && categorias.includes(v)) { setAdminMsg("Categoria já existe."); return; }
+
+    if (acEdit) {
+      await supabase.from("categorias").update({ nome: v }).eq("nome", acEdit);
+      setCategorias(prev => prev.map(c => c === acEdit ? v : c));
+    } else {
+      await supabase.from("categorias").insert([{ nome: v }]);
+      setCategorias(prev => [...prev, v]);
+    }
+
+    setAcVal(""); setAcEdit(null);
+    setAdminMsg(acEdit ? "Categoria atualizada!" : "Categoria adicionada!"); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  const deleteCat = async (c) => {
+    if (!window.confirm(`Excluir categoria "${c}"?`)) return;
+    await supabase.from("categorias").delete().eq("nome", c);
+    setCategorias(prev => prev.filter(x => x !== c));
+    setAdminMsg("Categoria excluída."); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  // ── Admin – PIN ───────────────────────────────────────────
+  const changePin = async () => {
+    if (ep1.length < 4) { setAdminMsg("PIN deve ter pelo menos 4 dígitos."); return; }
+    if (ep1 !== ep2)    { setAdminMsg("PINs não coincidem."); return; }
+    await savePin(ep1); setEp1(""); setEp2("");
+    setAdminMsg("PIN alterado com sucesso!"); setTimeout(() => setAdminMsg(""), 3000);
+  };
+
+  // ── Filtered list ─────────────────────────────────────────
+  const filtered = produtos.filter(p => {
+    const matchesSearch =
+      p.code.includes(search.toUpperCase()) ||
+      (p.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (p.shelf || "").toLowerCase().includes(search.toLowerCase());
+    const matchesArea = !areaFilter || (p.shelf || "").toLowerCase().includes(areaFilter.toLowerCase());
+    return matchesSearch && matchesArea;
+  });
+
+  // ── Admin – busca por código (aba Padrões) ─────────────────
+  const apFiltered = produtos.filter(p => p.code.includes(apSearch.trim().toUpperCase()));
+
+  if (!loaded) return (
+    <div className="vlr" style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, color: C.muted, fontFamily: FM }}>
+      <style>{CSS}</style>
+      <div style={{ color: C.accent, animation: "vlrPulse 1.4s ease-in-out infinite" }}><Icon name="box" size={32} /></div>
+      <div style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase" }}>Carregando…</div>
+    </div>
+  );
+
+  if (!authedUser) return (
+    <LoginScreen pn={loginPn} senha={loginSenha} error={loginErr}
+      onChangePn={setLoginPn} onChangeSenha={setLoginSenha} onSubmit={login} />
+  );
+
+  // ══════════════════════════════════════════════════════════
+  return (
+    <div className="vlr" style={{
+      minHeight: "100vh", background: C.bg, color: C.txt, fontFamily: FS,
+      backgroundImage: `radial-gradient(1100px 480px at 75% -12%, rgba(37,99,235,0.06), transparent 60%), linear-gradient(rgba(27,36,49,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(27,36,49,0.035) 1px, transparent 1px)`,
+      backgroundSize: "100% 100%, 34px 34px, 34px 34px",
+    }}>
+      <style>{CSS}</style>
+
+      {/* Header */}
+      <header style={{ borderBottom: `1px solid ${C.line}`, padding: "18px 28px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", background: "linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0))" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #eef3fc, #e1ebf9)", border: `1px solid ${C.line2}`, color: C.accent, boxShadow: "0 1px 2px rgba(27,36,49,0.06)" }}>
+            <Icon name="box" size={22} />
+          </div>
+          <div>
+            <div style={{ fontFamily: FM, fontSize: 10, letterSpacing: 3, color: C.accent, textTransform: "uppercase", marginBottom: 4 }}>Vallourec</div>
+            <div style={{ fontFamily: FS, fontSize: 19, fontWeight: 700, letterSpacing: 0.2, color: C.txt }}>Estoque de Tubo Padrão</div>
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: FS, fontSize: 12, color: C.muted, border: `1px solid ${C.line}`, borderRadius: 999, padding: "5px 11px", background: C.panel2 }}>
+              <Icon name="user" size={13} color={C.accent} /> {authedUser.nome}
+            </span>
+            <button className="iconbtn" onClick={logout} title="Sair"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "transparent", border: `1px solid ${C.line}`, borderRadius: 999, padding: "5px 10px", color: C.muted2, cursor: "pointer", fontFamily: FS, fontSize: 11.5 }}>
+              <Icon name="lock" size={12} /> Sair
+            </button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3 }}>
+            <span style={{ fontFamily: FS, fontSize: 10.5, color: C.muted, marginBottom: 2 }}>Desenvolvido por</span>
+            <span style={{ fontFamily: FS, fontSize: 10, fontWeight: 600, letterSpacing: 0.4, color: C.accent, textTransform: "uppercase" }}>Emerson Santos</span>
+          </div>
+        </div>
+      </header>
+
+      {/* ══ MODAL: TROCA OBRIGATÓRIA DE SENHA (1º acesso) ══ */}
+      {forceChangePw && (
+        <Modal title={<><Icon name="lock" size={18} color={C.accent} /> Alterar senha</>} onClose={() => {}} hideClose>
+          <div style={{ color: C.muted, fontSize: 12.5, marginBottom: 14, lineHeight: 1.6 }}>
+            Este é o seu primeiro acesso (ou sua senha foi redefinida pelo administrador). Por segurança, defina uma nova senha de 4 dígitos antes de continuar.
+          </div>
+          <Lbl>Nova senha</Lbl>
+          <input type="password" inputMode="numeric" maxLength={4} value={npw1} onChange={e => setNpw1(e.target.value.replace(/\D/g, ""))}
+            placeholder="••••" style={{ ...S.input, fontSize: 22, letterSpacing: 8, textAlign: "center" }} />
+          <Lbl>Confirmar nova senha</Lbl>
+          <input type="password" inputMode="numeric" maxLength={4} value={npw2} onChange={e => setNpw2(e.target.value.replace(/\D/g, ""))}
+            placeholder="••••" style={{ ...S.input, fontSize: 22, letterSpacing: 8, textAlign: "center" }} />
+          {pwErr && <Err>{pwErr}</Err>}
+          <div style={{ marginTop: 14 }}><Btn1 onClick={changeUserPassword}><Icon name="save" size={15} /> Salvar nova senha</Btn1></div>
+        </Modal>
+      )}
+
+      {/* ══ MAIN PAGE / MENU ══ */}
+      {page === "home" && (
+        <main style={{ padding: "34px 28px 48px", maxWidth: 1080, margin: "0 auto" }}>
+          <div style={{ maxWidth: 720, marginBottom: 28 }}>
+            <div style={{ fontFamily: FS, fontSize: 22, fontWeight: 700, letterSpacing: 0.2, color: C.txt, marginBottom: 8 }}>Painel de controle</div>
+            <div style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.6 }}>
+              Selecione uma opção para gerenciar o estoque de tubos padrão: registre uma movimentação,
+              consulte a lista completa, acompanhe o histórico ou acesse a área administrativa.
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(258px, 1fr))", gap: 16 }}>
+            <MenuCard tone="accent" icon="swap" title="Realizar movimentação de padrão"
+              desc="Registre a transferência de um padrão entre locais — por leitura de QR Code ou seleção manual."
+              cta="Movimentar" action={openMove} />
+            <MenuCard icon="list" title="Lista de padrões"
+              desc="Consulte todos os padrões cadastrados, com código, descrição, categoria e local de armazenamento."
+              cta="Abrir lista" action={() => setPage("lista")} />
+            <MenuCard icon="history" title="Histórico de movimentações"
+              desc="Acompanhe todas as movimentações registradas, com origem, destino, responsável e data."
+              cta="Ver histórico" action={() => setPage("historico")} />
+            <MenuCard icon="key" title="Área do Administrador"
+              desc="Gerencie padrões, locais, categorias e usuários, e altere o PIN. Acesso protegido por PIN."
+              cta="Acessar" action={() => askPin(() => { setAdminMsg(""); setAdminTab("produtos"); startAddProd(); setPage("admin"); })} />
+          </div>
+        </main>
+      )}
+
+      {/* ══ PÁGINA: LISTA DE PADRÕES ══ */}
+      {page === "lista" && (
+        <main style={{ padding: "20px 28px 32px", maxWidth: 1200, margin: "0 auto" }}>
+          <PageHead icon="list" title="Lista de padrões" onBack={() => setPage("home")} size={23} />
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+            <span style={S.tag(C.accent)}>{filtered.length} padrões cadastrados</span>
+            <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
+              <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: C.muted2, pointerEvents: "none", display: "flex" }}><Icon name="search" size={16} /></span>
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar por código, nome ou local…" style={{ ...S.input, paddingLeft: 38 }} />
+            </div>
+            <button className="btn-primary" onClick={openMove} style={{
+              display: "inline-flex", alignItems: "center", gap: 8, background: C.accent, color: "#ffffff", border: "none", borderRadius: 9,
+              padding: "0 18px", height: 40, cursor: "pointer", fontFamily: FS, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
+            }}><Icon name="swap" size={16} /> Realizar movimentação</button>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+            {AREA_TAGS.map(tag => {
+              const on = areaFilter === tag;
+              return (
+                <button key={tag} onClick={() => setAreaFilter(on ? null : tag)} style={{
+                  fontFamily: FM, fontSize: 11.5, letterSpacing: 0.5, padding: "6px 14px", borderRadius: 999,
+                  border: `1px solid ${on ? C.accent : C.line}`,
+                  background: on ? C.accent : C.panel2,
+                  color: on ? "#ffffff" : C.muted,
+                  cursor: "pointer", fontWeight: on ? 600 : 500,
+                }}>{tag}</button>
+              );
+            })}
+            {areaFilter && (
+              <button onClick={() => setAreaFilter(null)} style={{
+                display: "inline-flex", alignItems: "center", gap: 5, fontFamily: FM, fontSize: 11, letterSpacing: 0.5,
+                padding: "6px 12px", borderRadius: 999, border: `1px solid ${C.line}`, background: "transparent",
+                color: C.muted2, cursor: "pointer",
+              }}><Icon name="close" size={12} /> Limpar filtro</button>
+            )}
+          </div>
+
+          {filtered.length === 0
+            ? <div style={{ textAlign: "center", color: C.muted2, padding: "64px 0", fontSize: 13.5, fontFamily: FM }}>
+                {produtos.length === 0 ? "Nenhum padrão cadastrado." : "Nenhum resultado."}
+              </div>
+            : <div style={{ border: `1px solid ${C.line}`, borderRadius: 14, overflow: "hidden", background: C.panel2 }}>
+                <div className="table-scroll" style={{ overflow: "auto", maxHeight: "calc(100vh - 260px)" }}>
+                  <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
+                    <thead>
+                      <tr>
+                        {["Código", "Descrição", "Categoria do padrão", "Local de armazenamento"].map(h => (
+                          <th key={h} style={{ textAlign: "left", padding: "13px 14px", color: C.muted2, fontWeight: 500, letterSpacing: 1, fontSize: 10, textTransform: "uppercase", fontFamily: FM, whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, background: C.panel, boxShadow: `inset 0 -1px 0 ${C.line2}` }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((p, i) => (
+                        <tr key={p.code} className="row-hover" style={{ background: i % 2 === 0 ? "transparent" : "rgba(27,36,49,0.022)" }}>
+                          <td style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}`, fontFamily: FS, fontSize: 13, fontWeight: 600, color: C.accent, letterSpacing: 0.3 }}>{p.code}</td>
+                          <td style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}`, fontFamily: FS, fontSize: 13, color: C.muted }}>{p.name || <Em />}</td>
+                          <td style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}`, fontFamily: FS, fontSize: 13, color: C.muted }}>{p.category || <Em />}</td>
+                          <td style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}` }}><span style={{ ...S.tag(C.loc), fontFamily: FS }}><Icon name="pin" size={12} />{p.shelf}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+          }
+        </main>
+      )}
+
+      {/* ══ PÁGINA: HISTÓRICO DE MOVIMENTAÇÕES ══ */}
+      {page === "historico" && (
+        <main style={{ padding: "20px 28px 32px", maxWidth: 1200, margin: "0 auto" }}>
+          <PageHead icon="history" title="Histórico de movimentações" onBack={() => setPage("home")} />
+
+          <div style={{ marginBottom: 16, color: C.muted2, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", fontFamily: FM }}>
+            {historico.length} {historico.length === 1 ? "movimentação registrada" : "movimentações registradas"}
+          </div>
+          {historico.length === 0
+            ? <div style={{ textAlign: "center", color: C.muted2, padding: "64px 0", fontSize: 13.5, fontFamily: FM }}>Nenhuma movimentação registrada.</div>
+            : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {historico.map(h => (
+                  <div key={h.id} className="card-hover" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: "13px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FM, fontSize: 13 }}>
+                    <span style={{ fontFamily: FM, fontSize: 13, color: C.accent, fontWeight: 600, letterSpacing: 0.5, minWidth: 72 }}>{h.code}</span>
+                    <span style={S.tag(C.loc)}>{h.de}</span>
+                    <Icon name="arrowR" size={15} color={C.muted2} />
+                    <span style={S.tag(C.ok)}>{h.para}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 13, fontFamily: FM, marginLeft: "auto" }}><Icon name="user" size={14} />{h.responsavel}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted2, fontSize: 12.5, fontFamily: FM }}><Icon name="clock" size={13} />{fmt(h.data)}</span>
+                  </div>
+                ))}
+              </div>
+          }
+        </main>
+      )}
+
+      {/* ══ MODAL: MOVIMENTAÇÃO WIZARD ══ */}
+      {showMove && <Modal title={<><Icon name="swap" size={18} color={C.accent} /> Realizar movimentação</>} onClose={closeMove}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+          {[["1", "Padrão"], ["2", "Local"]].map(([n, l], i) => {
+            const active = mvStep === i + 1, done = mvStep > i + 1;
+            const col = done ? C.ok : active ? C.accent : C.muted2;
+            return (
+              <div key={n} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", borderRadius: 9, fontSize: 11, fontFamily: FS, letterSpacing: 0.5,
+                background: done ? `${C.ok}12` : active ? `${C.accent}12` : C.panel2,
+                border: `1px solid ${done ? `${C.ok}3a` : active ? `${C.accent}55` : C.line}`,
+                color: col, fontWeight: active ? 600 : 400,
+              }}>{done ? <Icon name="check" size={13} /> : <span>{n}.</span>}{l}</div>
+            );
+          })}
+        </div>
+
+        {mvStep === 1 && <>
+          <div style={{ color: C.muted, fontSize: 12.5, marginBottom: 12, lineHeight: 1.5 }}>Escaneie o QR Code do padrão ou digite o código manualmente.</div>
+          <Lbl>Código do padrão *</Lbl>
+          <input value={mvProdInput} onChange={e => setMvProdInput(e.target.value.toUpperCase())}
+            placeholder="EC001" maxLength={7} style={S.input} onKeyDown={e => e.key === "Enter" && mvStep1Next()} />
+          {mvError && <Err>{mvError}</Err>}
+          <video ref={videoRef} style={{ width: "100%", borderRadius: 10, background: "#000", display: mvScanActive ? "block" : "none", maxHeight: 220, marginTop: 12, border: `1px solid ${C.line}` }} playsInline muted />
+          {!mvScanActive
+            ? <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.panel2, border: `1px dashed ${C.line2}`, borderRadius: 10, height: 52, color: C.muted2, fontSize: 12, marginTop: 8, cursor: "pointer", fontFamily: FM }} onClick={scanStep1}><Icon name="camera" size={16} /> Toque para escanear QR Code</div>
+            : <button onClick={stopScan} style={{ marginTop: 8, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: `${C.signal}14`, color: C.signal, border: `1px solid ${C.signal}40`, borderRadius: 9, padding: "9px", cursor: "pointer", fontFamily: FS, fontSize: 12.5 }}><Icon name="stop" size={14} /> Parar câmera</button>
+          }
+          <Row><Btn2 onClick={closeMove}>Cancelar</Btn2><Btn1 onClick={mvStep1Next}>Próximo <Icon name="arrowR" size={15} /></Btn1></Row>
+        </>}
+
+        {mvStep === 2 && <>
+          <div style={{ background: `${C.ok}10`, border: `1px solid ${C.ok}33`, borderRadius: 10, padding: "11px 13px", marginBottom: 12, fontSize: 12.5, display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <Icon name="check" size={16} color={C.ok} style={{ marginTop: 2 }} />
+            <div>
+              Padrão: <strong style={{ color: C.accent, fontFamily: FM }}>{mvProdObj?.code}</strong>
+              {mvProdObj?.name && <span style={{ color: C.muted }}> — {mvProdObj.name}</span>}
+              <div style={{ color: C.muted2, fontSize: 11, marginTop: 3, fontFamily: FM }}>Local atual: {mvProdObj?.shelf}</div>
+            </div>
+          </div>
+          <div style={{ color: C.muted, fontSize: 12.5, marginBottom: 12, lineHeight: 1.5 }}>Escaneie o QR Code do local de destino ou selecione manualmente.</div>
+          <Lbl>Local de armazenamento de destino *</Lbl>
+          <Select value={mvLocalInput} onChange={e => setMvLocalInput(e.target.value)} placeholder="Selecione o local" options={locais} />
+          {mvLocalInput && mvLocalInput !== mvProdObj?.shelf && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 10, fontSize: 12.5 }}>
+              <span style={{ color: C.muted2 }}>De</span><span style={S.tag(C.loc)}>{mvProdObj?.shelf}</span>
+              <Icon name="arrowR" size={15} color={C.muted2} />
+              <span style={{ color: C.muted2 }}>Para</span><span style={S.tag(C.ok)}>{mvLocalInput}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 12, fontSize: 12, color: C.muted, fontFamily: FS }}>
+            <Icon name="user" size={14} color={C.accent} /> Responsável: <strong style={{ color: C.txt }}>{authedUser?.nome}</strong>
+          </div>
+          {mvError && <Err>{mvError}</Err>}
+          <video ref={videoRef} style={{ width: "100%", borderRadius: 10, background: "#000", display: mvScanActive ? "block" : "none", maxHeight: 220, marginTop: 12, border: `1px solid ${C.line}` }} playsInline muted />
+          {!mvScanActive
+            ? <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.panel2, border: `1px dashed ${C.line2}`, borderRadius: 10, height: 52, color: C.muted2, fontSize: 12, marginTop: 8, cursor: "pointer", fontFamily: FM }} onClick={scanStep2}><Icon name="camera" size={16} /> Toque para escanear QR Code</div>
+            : <button onClick={stopScan} style={{ marginTop: 8, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: `${C.signal}14`, color: C.signal, border: `1px solid ${C.signal}40`, borderRadius: 9, padding: "9px", cursor: "pointer", fontFamily: FS, fontSize: 12.5 }}><Icon name="stop" size={14} /> Parar câmera</button>
+          }
+          <Row><Btn2 onClick={() => { stopScan(); setMvStep(1); setMvError(""); }}><Icon name="arrowL" size={15} /> Voltar</Btn2><Btn1 onClick={mvConfirm}><Icon name="check" size={15} /> Confirmar</Btn1></Row>
+        </>}
+      </Modal>}
+
+      {/* ══ MODAL: PIN GATE ══ */}
+      {showPinGate && <Modal title={<><Icon name="lock" size={18} color={C.accent} /> Área restrita</>} onClose={() => setShowPinGate(false)}>
+        <div style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>Digite o PIN de administrador:</div>
+        <input type="password" inputMode="numeric" maxLength={8} value={pinInput}
+          onChange={e => setPinInput(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmPin()}
+          placeholder="••••" style={{ ...S.input, fontSize: 22, letterSpacing: 8, textAlign: "center" }} />
+        {pinError && <Err>{pinError}</Err>}
+        <Row><Btn2 onClick={() => setShowPinGate(false)}>Cancelar</Btn2><Btn1 onClick={confirmPin}>Entrar</Btn1></Row>
+      </Modal>}
+
+      {/* ══ MODAL: ADMIN ══ */}
+      {page === "admin" && (
+        <main style={{ padding: "20px 28px 40px", maxWidth: 860, margin: "0 auto" }}>
+          <PageHead icon="sliders" title="Área do Administrador" onBack={() => setPage("home")} />
+          <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+          {[["produtos", "Padrões", "box"], ["locais", "Locais", "pin"], ["categorias", "Categorias", "tag"], ["responsaveis", "Usuários", "user"], ["pin", "PIN", "key"]].map(([t, l, ic]) => {
+            const on = adminTab === t;
+            return (
+              <button key={t} onClick={() => { setAdminTab(t); setAdminMsg(""); }}
+                style={{ flex: 1, minWidth: 84, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "9px 4px", border: `1px solid ${on ? `${C.accent}55` : C.line}`, borderRadius: 10, cursor: "pointer", fontFamily: FM, fontSize: 10.5, letterSpacing: 0.5,
+                  background: on ? `${C.accent}12` : C.panel2, color: on ? C.accent : C.muted2, fontWeight: on ? 600 : 400,
+                }}><Icon name={ic} size={16} />{l}</button>
+            );
+          })}
+        </div>
+
+        {/* Produtos */}
+        {adminTab === "produtos" && <>
+          <div style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12, fontWeight: 600, fontFamily: FM }}>
+              <Icon name={apEdit ? "edit" : "plus"} size={14} />{apEdit ? "Editar padrão" : "Novo padrão"}
+            </div>
+            <Lbl>Código *</Lbl>
+            <input value={apCode} onChange={e => setApCode(e.target.value)} placeholder="EC001" maxLength={7} style={S.input} disabled={!!apEdit} />
+            <Lbl>Descrição *</Lbl>
+            <input value={apName} onChange={e => setApName(e.target.value)} placeholder="Ex: 244.48 x 13.84" style={S.input} />
+            <Lbl>Categoria do padrão *</Lbl>
+            <Select value={apCat} onChange={e => setApCat(e.target.value)} placeholder="Selecione a categoria" options={categorias} />
+            <Lbl>Local de armazenamento *</Lbl>
+            <Select value={apLocal} onChange={e => setApLocal(e.target.value)} placeholder="Selecione o local" options={locais} />
+            {apError && <Err>{apError}</Err>}
+            <Row>
+              {apEdit && <Btn2 onClick={startAddProd}>Cancelar edição</Btn2>}
+              <Btn1 onClick={saveProd}><Icon name={apEdit ? "save" : "plus"} size={15} /> {apEdit ? "Salvar" : "Cadastrar"}</Btn1>
+            </Row>
+          </div>
+          <div style={{ position: "relative", marginBottom: 10 }}>
+            <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: C.muted2, pointerEvents: "none", display: "flex" }}><Icon name="search" size={16} /></span>
+            <input value={apSearch} onChange={e => setApSearch(e.target.value.toUpperCase())}
+              placeholder="Buscar por código EC…" style={{ ...S.input, paddingLeft: 38 }} />
+          </div>
+          <div style={{ maxHeight: 380, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {apFiltered.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>{produtos.length === 0 ? "Nenhum padrão cadastrado." : "Nenhum resultado."}</div>}
+            {apFiltered.map(p => (
+              <div key={p.code} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5, gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ color: C.accent, fontWeight: 600, fontFamily: FM }}>{p.code}</span>
+                  {p.name && <span style={{ color: C.muted }}> — {p.name}</span>}
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, color: C.muted2, fontSize: 11, marginTop: 3, fontFamily: FM }}><Icon name="pin" size={12} />{p.shelf}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <IconBtn onClick={() => startEditProd(p)} color={C.accent}><Icon name="edit" size={14} /></IconBtn>
+                  <IconBtn onClick={() => deleteProd(p.code)} color={C.signal}><Icon name="trash" size={14} /></IconBtn>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>}
+
+        {/* Locais */}
+        {adminTab === "locais" && <>
+          <div style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10, fontWeight: 600, fontFamily: FM }}>
+              <Icon name={alEdit ? "edit" : "plus"} size={14} />{alEdit ? "Editar local" : "Novo local"}
+            </div>
+            <Lbl>Nome do local *</Lbl>
+            <input value={alVal} onChange={e => setAlVal(e.target.value)} placeholder="Ex: Estaleiro 1" style={S.input} />
+            <Row>
+              {alEdit && <Btn2 onClick={() => { setAlEdit(null); setAlVal(""); }}>Cancelar</Btn2>}
+              <Btn1 onClick={saveLocal}><Icon name={alEdit ? "save" : "plus"} size={15} /> {alEdit ? "Salvar" : "Adicionar"}</Btn1>
+            </Row>
+          </div>
+          <div style={{ maxHeight: 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {locais.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>Nenhum local cadastrado.</div>}
+            {locais.map(l => (
+              <div key={l} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 7, color: C.loc }}><Icon name="pin" size={14} /> {l}</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <IconBtn onClick={() => { setAlEdit(l); setAlVal(l); }} color={C.accent}><Icon name="edit" size={14} /></IconBtn>
+                  <IconBtn onClick={() => deleteLocal(l)} color={C.signal}><Icon name="trash" size={14} /></IconBtn>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>}
+
+        {/* Categorias */}
+        {adminTab === "categorias" && <>
+          <div style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10, fontWeight: 600, fontFamily: FM }}>
+              <Icon name={acEdit ? "edit" : "plus"} size={14} />{acEdit ? "Editar categoria" : "Nova categoria"}
+            </div>
+            <Lbl>Nome da categoria *</Lbl>
+            <input value={acVal} onChange={e => setAcVal(e.target.value)} placeholder="Ex: Ultrassom" style={S.input} />
+            <Row>
+              {acEdit && <Btn2 onClick={() => { setAcEdit(null); setAcVal(""); }}>Cancelar</Btn2>}
+              <Btn1 onClick={saveCat}><Icon name={acEdit ? "save" : "plus"} size={15} /> {acEdit ? "Salvar" : "Adicionar"}</Btn1>
+            </Row>
+          </div>
+          <div style={{ maxHeight: 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {categorias.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>Nenhuma categoria cadastrada.</div>}
+            {categorias.map(c => (
+              <div key={c} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 7, color: C.warn }}><Icon name="tag" size={14} /> {c}</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <IconBtn onClick={() => { setAcEdit(c); setAcVal(c); }} color={C.accent}><Icon name="edit" size={14} /></IconBtn>
+                  <IconBtn onClick={() => deleteCat(c)} color={C.signal}><Icon name="trash" size={14} /></IconBtn>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>}
+
+        {/* Usuários */}
+        {adminTab === "responsaveis" && <>
+          <div style={{ background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10, fontWeight: 600, fontFamily: FM }}>
+              <Icon name={arEdit ? "edit" : "plus"} size={14} />{arEdit ? "Editar usuário" : "Novo usuário"}
+            </div>
+            <Lbl>PN *</Lbl>
+            <input value={arPn} onChange={e => setArPn(e.target.value)} placeholder="Ex: 701234" style={S.input} />
+            <Lbl>Nome e sobrenome *</Lbl>
+            <input value={arNome} onChange={e => setArNome(e.target.value)} placeholder="Ex: Emerson Santos" style={S.input} />
+            {!arEdit && <div style={{ fontSize: 11, color: C.muted2, marginTop: 6, fontFamily: FS }}>O usuário acessa o sistema com o PN e a senha padrão (1234), trocada obrigatoriamente no 1º acesso.</div>}
+            {arError && <Err>{arError}</Err>}
+            <Row>
+              {arEdit && <Btn2 onClick={startAddResp}>Cancelar edição</Btn2>}
+              <Btn1 onClick={saveResp}><Icon name={arEdit ? "save" : "plus"} size={15} /> {arEdit ? "Salvar" : "Adicionar"}</Btn1>
+            </Row>
+          </div>
+          <div style={{ maxHeight: 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {resps.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>Nenhum usuário cadastrado.</div>}
+            {resps.map(r => (
+              <div key={r.pn} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5, gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, color: C.txt }}>
+                  <Icon name="user" size={14} color={C.accent} />
+                  <span style={{ fontFamily: FM, color: C.accent, fontWeight: 600 }}>{r.pn}</span>
+                  <span style={{ color: C.muted }}> — {r.nome}</span>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <IconBtn onClick={() => resetRespPassword(r.pn)} color={C.warn} title="Redefinir senha para 1234"><Icon name="key" size={14} /></IconBtn>
+                  <IconBtn onClick={() => startEditResp(r)} color={C.accent}><Icon name="edit" size={14} /></IconBtn>
+                  <IconBtn onClick={() => deleteResp(r.pn)} color={C.signal}><Icon name="trash" size={14} /></IconBtn>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>}
+
+        {/* PIN */}
+        {adminTab === "pin" && <>
+          <div style={{ color: C.muted, fontSize: 12.5, marginBottom: 14, lineHeight: 1.6 }}>Altere o PIN de administrador (mínimo 4 dígitos).<br />PIN padrão inicial: <strong style={{ color: C.txt, fontFamily: FM }}>1234</strong></div>
+          <Lbl>Novo PIN</Lbl>
+          <input type="password" inputMode="numeric" value={ep1} onChange={e => setEp1(e.target.value)} placeholder="••••" style={S.input} />
+          <Lbl>Confirmar PIN</Lbl>
+          <input type="password" inputMode="numeric" value={ep2} onChange={e => setEp2(e.target.value)} placeholder="••••" style={S.input} />
+          <div style={{ marginTop: 14 }}><Btn1 onClick={changePin}><Icon name="save" size={15} /> Salvar novo PIN</Btn1></div>
+        </>}
+
+        {adminMsg && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 14, color: C.ok, fontSize: 12.5, textAlign: "center", background: `${C.ok}12`, border: `1px solid ${C.ok}33`, borderRadius: 9, padding: "9px" }}><Icon name="check" size={14} />{adminMsg}</div>}
+        </main>
+      )}
+
+    </div>
+  );
 }
+
 // ── Micro-components ──────────────────────────────────────────
+function LoginScreen({ pn, senha, error, onChangePn, onChangeSenha, onSubmit }) {
+  return (
+    <div className="vlr" style={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      background: C.bg, color: C.txt, fontFamily: FS,
+      backgroundImage: `radial-gradient(1100px 480px at 75% -12%, rgba(37,99,235,0.06), transparent 60%), linear-gradient(rgba(27,36,49,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(27,36,49,0.035) 1px, transparent 1px)`,
+      backgroundSize: "100% 100%, 34px 34px, 34px 34px",
+    }}>
+      <style>{CSS}</style>
+      <div style={{ width: "100%", maxWidth: 360, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 16, padding: 28, boxShadow: "0 24px 60px -24px rgba(27,36,49,0.4)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg, #eef3fc, #e1ebf9)", border: `1px solid ${C.line2}`, color: C.accent }}>
+            <Icon name="box" size={22} />
+          </div>
+          <div>
+            <div style={{ fontFamily: FM, fontSize: 10, letterSpacing: 3, color: C.accent, textTransform: "uppercase", marginBottom: 4 }}>Vallourec</div>
+            <div style={{ fontFamily: FS, fontSize: 16, fontWeight: 700, color: C.txt }}>Estoque de Tubo Padrão</div>
+          </div>
+        </div>
+        <div style={{ fontFamily: FS, fontSize: 15, fontWeight: 600, color: C.txt, marginBottom: 4 }}>Acesso ao sistema</div>
+        <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 18, lineHeight: 1.5 }}>Informe seu PN e senha para continuar.</div>
+        <Lbl>PN</Lbl>
+        <input value={pn} onChange={e => onChangePn(e.target.value)} placeholder="Ex: 701234" style={S.input}
+          onKeyDown={e => e.key === "Enter" && onSubmit()} />
+        <Lbl>Senha</Lbl>
+        <input type="password" inputMode="numeric" maxLength={4} value={senha} onChange={e => onChangeSenha(e.target.value.replace(/\D/g, ""))}
+          placeholder="••••" style={{ ...S.input, fontSize: 22, letterSpacing: 8, textAlign: "center" }}
+          onKeyDown={e => e.key === "Enter" && onSubmit()} />
+        {error && <Err>{error}</Err>}
+        <div style={{ marginTop: 16 }}><Btn1 onClick={onSubmit}><Icon name="check" size={15} /> Entrar</Btn1></div>
+        <div style={{ fontSize: 11, color: C.muted2, marginTop: 14, lineHeight: 1.5 }}>
+          Senha padrão do primeiro acesso: <strong style={{ color: C.muted, fontFamily: FM }}>1234</strong>. Esqueceu a senha? Procure o administrador.
+        </div>
+      </div>
+    </div>
+  );
+}
 function PageHead({ icon, title, onBack, size = 20 }) {
- return (
- <div style={{ marginBottom: 22 }}>
- <button className="back-link" onClick={onBack}
- style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "transparent", border: `1px solid ${C.grayD}`, borderRadius: 9, padding: "7px 13px", color: C.grayL, cursor: "pointer", fontFamily: FS, fontSize: 12.5, marginBottom: 16 }}>
- <Icon name="arrowL" size={15} /> Voltar ao menu
- </button>
- <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
- <span style={{ color: C.accent, display: "flex" }}><Icon name={icon} size={Math.round(size * 1.05)} /></span>
- <span style={{ fontFamily: FS, fontSize: size, fontWeight: 700, letterSpacing: 0.2, color: C.txt }}>{title}</span>
- </div>
- </div>
- );
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <button className="back-link" onClick={onBack}
+        style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "transparent", border: `1px solid ${C.grayD}`, borderRadius: 9, padding: "7px 13px", color: C.grayL, cursor: "pointer", fontFamily: FS, fontSize: 12.5, marginBottom: 16 }}>
+        <Icon name="arrowL" size={15} /> Voltar ao menu
+      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+        <span style={{ color: C.accent, display: "flex" }}><Icon name={icon} size={Math.round(size * 1.05)} /></span>
+        <span style={{ fontFamily: FS, fontSize: size, fontWeight: 700, letterSpacing: 0.2, color: C.txt }}>{title}</span>
+      </div>
+    </div>
+  );
 }
 function CardTile({ name, accent }) {
- return (
- <div style={{
- width: 48, height: 48, borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center",
- background: accent ? "linear-gradient(160deg, #eef3fc, #e1ebf9)" : "linear-gradient(160deg, #f1f3f7, #e7ebf1)",
- border: `1px solid ${accent ? C.line2 : C.grayD}`,
- color: accent ? C.accent : C.gray,
- boxShadow: accent ? "0 1px 2px rgba(37,99,235,0.08)" : "0 1px 2px rgba(27,36,49,0.05)",
- }}>
- <Icon name={name} size={23} />
- </div>
- );
+  return (
+    <div style={{
+      width: 48, height: 48, borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center",
+      background: accent ? "linear-gradient(160deg, #eef3fc, #e1ebf9)" : "linear-gradient(160deg, #f1f3f7, #e7ebf1)",
+      border: `1px solid ${accent ? C.line2 : C.grayD}`,
+      color: accent ? C.accent : C.gray,
+      boxShadow: accent ? "0 1px 2px rgba(37,99,235,0.08)" : "0 1px 2px rgba(27,36,49,0.05)",
+    }}>
+      <Icon name={name} size={23} />
+    </div>
+  );
 }
 function MenuCard({ icon, title, desc, cta, action, tone }) {
- const accent = tone === "accent";
- return (
- <button className={"menu-card" + (accent ? " accent" : "")} onClick={action} style={{
- textAlign: "left", display: "flex", flexDirection: "column", gap: 15, background: C.panel2,
- border: `1px solid ${C.line}`, borderRadius: 16, padding: "22px 22px 18px", cursor: "pointer", fontFamily: FS, color: C.txt,
- }}>
- <CardTile name={icon} accent={accent} />
- <div style={{ flex: 1 }}>
- <div style={{ fontSize: 15.5, fontWeight: 600, letterSpacing: 0.2, marginBottom: 7 }}>{title}</div>
- <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.55 }}>{desc}</div>
- </div>
- <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 7, fontFamily: FM, fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase", color: accent ? C.accent : C.grayL }}>
- {cta} <Icon name="arrowR" size={14} />
- </div>
- </button>
- );
+  const accent = tone === "accent";
+  return (
+    <button className={"menu-card" + (accent ? " accent" : "")} onClick={action} style={{
+      textAlign: "left", display: "flex", flexDirection: "column", gap: 15, background: C.panel2,
+      border: `1px solid ${C.line}`, borderRadius: 16, padding: "22px 22px 18px", cursor: "pointer", fontFamily: FS, color: C.txt,
+    }}>
+      <CardTile name={icon} accent={accent} />
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15.5, fontWeight: 600, letterSpacing: 0.2, marginBottom: 7 }}>{title}</div>
+        <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.55 }}>{desc}</div>
+      </div>
+      <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 7, fontFamily: FM, fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase", color: accent ? C.accent : C.grayL }}>
+        {cta} <Icon name="arrowR" size={14} />
+      </div>
+    </button>
+  );
 }
 function Em() { return <span style={{ color: C.muted2, fontStyle: "italic" }}>—</span>; }
 function Lbl({ children }) { return <div style={{ fontFamily: FM, fontSize: 10, color: C.muted2, letterSpacing: 1.2, textTransform: "uppercase", margin: "14px 0 6px" }}>{children}</div>; }
 function Err({ children }) { return <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.signal, fontSize: 12, marginTop: 7, fontFamily: FM }}><Icon name="alert" size={13} />{children}</div>; }
 function Row({ children }) { return <div style={{ display: "flex", gap: 10, marginTop: 14 }}>{children}</div>; }
 function Btn1({ onClick, children, style = {} }) {
- return <button className="btn-primary" onClick={onClick} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.accent, color: "#ffffff", border: "none", borderRadius: 9, padding: "11px 14px", cursor: "pointer", fontFamily: FS, fontSize: 13, fontWeight: 600, letterSpacing: 0.2, ...style }}>{children}</button>;
+  return <button className="btn-primary" onClick={onClick} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.accent, color: "#ffffff", border: "none", borderRadius: 9, padding: "11px 14px", cursor: "pointer", fontFamily: FS, fontSize: 13, fontWeight: 600, letterSpacing: 0.2, ...style }}>{children}</button>;
 }
 function Btn2({ onClick, children }) {
- return <button className="btn-ghost" onClick={onClick} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "transparent", color: C.grayL, border: `1px solid ${C.grayD}`, borderRadius: 9, padding: "11px 14px", cursor: "pointer", fontFamily: FS, fontSize: 13, fontWeight: 500 }}>{children}</button>;
+  return <button className="btn-ghost" onClick={onClick} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "transparent", color: C.grayL, border: `1px solid ${C.grayD}`, borderRadius: 9, padding: "11px 14px", cursor: "pointer", fontFamily: FS, fontSize: 13, fontWeight: 500 }}>{children}</button>;
 }
 function IconBtn({ onClick, color, children, title }) {
- return <button className="iconbtn" onClick={onClick} title={title} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "transparent", border: `1px solid ${color}33`, borderRadius: 8, width: 30, height: 28, cursor: "pointer", color }}>{children}</button>;
+  return <button className="iconbtn" onClick={onClick} title={title} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "transparent", border: `1px solid ${color}33`, borderRadius: 8, width: 30, height: 28, cursor: "pointer", color }}>{children}</button>;
 }
 function Select({ value, onChange, placeholder, options }) {
- return (
- <select value={value} onChange={onChange} style={{ width: "100%", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px 36px 10px 13px", color: C.txt, fontFamily: FM, fontSize: 13, outline: "none", boxSizing: "border-box", appearance: "none", WebkitAppearance: "none", cursor: "pointer" }}>
- <option value="">{placeholder}</option>
- {options.map(o => <option key={o} value={o}>{o}</option>)}
- </select>
- );
+  return (
+    <select value={value} onChange={onChange} style={{ width: "100%", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px 36px 10px 13px", color: C.txt, fontFamily: FM, fontSize: 13, outline: "none", boxSizing: "border-box", appearance: "none", WebkitAppearance: "none", cursor: "pointer" }}>
+      <option value="">{placeholder}</option>
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
 }
-function Modal({ title, onClose, children, wide }) {
- return (
- <div style={{ position: "fixed", inset: 0, background: "rgba(27,36,49,0.45)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}>
- <div className="modal-card" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 16, padding: 24, width: "100%", maxWidth: wide ? 500 : 390, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 60px -24px rgba(27,36,49,0.4)" }}>
- <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
- <span style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: FS, fontWeight: 600, fontSize: 15, letterSpacing: 0.2, color: C.txt }}>{title}</span>
- <button className="iconbtn" onClick={onClose} style={{ display: "inline-flex", background: "transparent", border: "none", color: C.muted2, cursor: "pointer", padding: 4 }}><Icon name="close" size={20} /></button>
- </div>
- {children}
- </div>
- </div>
- );
+function Modal({ title, onClose, children, wide, hideClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(27,36,49,0.45)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}>
+      <div className="modal-card" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 16, padding: 24, width: "100%", maxWidth: wide ? 500 : 390, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 60px -24px rgba(27,36,49,0.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: FS, fontWeight: 600, fontSize: 15, letterSpacing: 0.2, color: C.txt }}>{title}</span>
+          {!hideClose && <button className="iconbtn" onClick={onClose} style={{ display: "inline-flex", background: "transparent", border: "none", color: C.muted2, cursor: "pointer", padding: 4 }}><Icon name="close" size={20} /></button>}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
