@@ -10,7 +10,6 @@ const supabase = createClient(
 
 const DEFAULT_PIN = "1234";
 const DEFAULT_USER_PASSWORD = "1234";
-const DEMO_USER = { pn: "000000", nome: "Demonstração", senha: "0000", isDemo: true };
 
 const fmt = (iso) => {
   const d = new Date(iso);
@@ -257,14 +256,6 @@ export default function App() {
     const pn = loginPn.trim();
     if (!pn) { setLoginErr("Informe o PN."); return; }
     if (!/^\d{4}$/.test(loginSenha)) { setLoginErr("A senha deve ter 4 dígitos."); return; }
-
-    // ── Usuário demonstração ──────────────────────────────────
-    if (pn === DEMO_USER.pn && loginSenha === DEMO_USER.senha) {
-      setAuthedUser(DEMO_USER);
-      setLoginPn(""); setLoginSenha("");
-      return;
-    }
-
     const user = resps.find(r => r.pn === pn);
     if (!user) { setLoginErr("PN não encontrado."); return; }
     if ((user.senha || DEFAULT_USER_PASSWORD) !== loginSenha) { setLoginErr("Senha incorreta."); return; }
@@ -600,11 +591,6 @@ export default function App() {
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {authedUser.isDemo && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: FM, fontSize: 11, color: C.warn, border: `1px solid ${C.warn}55`, borderRadius: 999, padding: "5px 11px", background: `${C.warn}12`, letterSpacing: 0.5 }}>
-                MODO DEMONSTRAÇÃO
-              </span>
-            )}
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: FS, fontSize: 12, color: C.muted, border: `1px solid ${C.line}`, borderRadius: 999, padding: "5px 11px", background: C.panel2 }}>
               <Icon name="user" size={13} color={C.accent} /> {authedUser.nome}
             </span>
@@ -648,22 +634,18 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(258px, 1fr))", gap: 16 }}>
-            {!authedUser.isDemo && (
-              <MenuCard tone="accent" icon="swap" title="Realizar movimentação de padrão"
-                desc="Registre a transferência de um padrão entre locais — por leitura de QR Code ou seleção manual."
-                cta="Movimentar" action={openMove} />
-            )}
+            <MenuCard tone="accent" icon="swap" title="Realizar movimentação de padrão"
+              desc="Registre a transferência de um padrão entre locais — por leitura de QR Code ou seleção manual."
+              cta="Movimentar" action={openMove} />
             <MenuCard icon="list" title="Lista de padrões"
               desc="Consulte todos os padrões cadastrados, com código, descrição, categoria e local de armazenamento."
               cta="Abrir lista" action={() => setPage("lista")} />
             <MenuCard icon="history" title="Histórico de movimentações"
               desc="Acompanhe todas as movimentações registradas, com origem, destino, responsável e data."
               cta="Ver histórico" action={() => setPage("historico")} />
-            {!authedUser.isDemo && (
-              <MenuCard icon="key" title="Área do Administrador"
-                desc="Gerencie padrões, locais, categorias e usuários, e altere o PIN. Acesso protegido por PIN."
-                cta="Acessar" action={() => askPin(() => { setAdminMsg(""); setAdminTab("produtos"); startAddProd(); setPage("admin"); })} />
-            )}
+            <MenuCard icon="key" title="Área do Administrador"
+              desc="Gerencie padrões, locais, categorias e usuários, e altere o PIN. Acesso protegido por PIN."
+              cta="Acessar" action={() => askPin(() => { setAdminMsg(""); setAdminTab("produtos"); startAddProd(); setPage("admin"); })} />
           </div>
         </main>
       )}
@@ -680,12 +662,10 @@ export default function App() {
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar por código, nome ou local…" style={{ ...S.input, paddingLeft: 38 }} />
             </div>
-            {!authedUser.isDemo && (
-              <button className="btn-primary" onClick={openMove} style={{
-                display: "inline-flex", alignItems: "center", gap: 8, background: C.accent, color: "#ffffff", border: "none", borderRadius: 9,
-                padding: "0 18px", height: 40, cursor: "pointer", fontFamily: FS, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
-              }}><Icon name="swap" size={16} /> Realizar movimentação</button>
-            )}
+            <button className="btn-primary" onClick={openMove} style={{
+              display: "inline-flex", alignItems: "center", gap: 8, background: C.accent, color: "#ffffff", border: "none", borderRadius: 9,
+              padding: "0 18px", height: 40, cursor: "pointer", fontFamily: FS, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
+            }}><Icon name="swap" size={16} /> Realizar movimentação</button>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
@@ -977,7 +957,7 @@ export default function App() {
             <Lbl>PN *</Lbl>
             <input value={arPn} onChange={e => setArPn(e.target.value)} placeholder="Ex: 701234" style={S.input} />
             <Lbl>Nome e sobrenome *</Lbl>
-            <input value={arNome} onChange={e => setArNome(e.target.value)} placeholder="Ex: Emerson Santos" style={S.input} />
+            <input value={arNome} onChange={e => setArNome(e.target.value)} placeholder="Ex: Nome Sobrenome" style={S.input} />
             {!arEdit && <div style={{ fontSize: 11, color: C.muted2, marginTop: 6, fontFamily: FS }}>O usuário acessa o sistema com o PN e a senha padrão (1234), trocada obrigatoriamente no 1º acesso.</div>}
             {arError && <Err>{arError}</Err>}
             <Row>
