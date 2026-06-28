@@ -957,7 +957,7 @@ export default function App() {
             <Lbl>PN *</Lbl>
             <input value={arPn} onChange={e => setArPn(e.target.value)} placeholder="Ex: 701234" style={S.input} />
             <Lbl>Nome e sobrenome *</Lbl>
-            <input value={arNome} onChange={e => setArNome(e.target.value)} placeholder="Ex: Emerson Santos" style={S.input} />
+            <input value={arNome} onChange={e => setArNome(e.target.value)} placeholder="Ex: Nome Sobrenome" style={S.input} />
             {!arEdit && <div style={{ fontSize: 11, color: C.muted2, marginTop: 6, fontFamily: FS }}>O usuário acessa o sistema com o PN e a senha padrão (1234), trocada obrigatoriamente no 1º acesso.</div>}
             {arError && <Err>{arError}</Err>}
             <Row>
