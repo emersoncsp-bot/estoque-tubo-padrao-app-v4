@@ -173,6 +173,8 @@ export default function App() {
   const [apEdit, setApEdit]   = useState(null);
   const [apError, setApError] = useState("");
   const [apSearch, setApSearch] = useState("");
+  const [arSearch, setArSearch] = useState("");
+  const [histSearch, setHistSearch] = useState("");
   const [alVal, setAlVal]     = useState("");
   const [alEdit, setAlEdit]   = useState(null);
   const [arPn, setArPn]       = useState("");
@@ -539,6 +541,21 @@ export default function App() {
   // ── Admin – busca por código (aba Padrões) ─────────────────
   const apFiltered = produtos.filter(p => p.code.includes(apSearch.trim().toUpperCase()));
 
+  // ── Locais ordenados alfabeticamente ──────────────────────
+  const locaisOrdenados = [...locais].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  // ── Histórico filtrado por EC ──────────────────────────────
+  const histFiltered = historico.filter(h =>
+    h.code.includes(histSearch.trim().toUpperCase()) ||
+    (histSearch.trim() === "")
+  );
+
+  // ── Usuários filtrados por PN ou nome ──────────────────────
+  const arFiltered = resps.filter(r =>
+    (r.pn || "").toLowerCase().includes(arSearch.toLowerCase()) ||
+    (r.nome || "").toLowerCase().includes(arSearch.toLowerCase())
+  );
+
   if (!loaded) return (
     <div className="vlr" style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, color: C.muted, fontFamily: FM }}>
       <style>{CSS}</style>
@@ -709,22 +726,38 @@ export default function App() {
         <main style={{ padding: "20px 28px 32px", maxWidth: 1200, margin: "0 auto" }}>
           <PageHead icon="history" title="Histórico de movimentações" onBack={() => setPage("home")} />
 
-          <div style={{ marginBottom: 16, color: C.muted2, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", fontFamily: FM }}>
-            {historico.length} {historico.length === 1 ? "movimentação registrada" : "movimentações registradas"}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+            <div style={{ color: C.muted2, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", fontFamily: FM, whiteSpace: "nowrap" }}>
+              {histFiltered.length} {histFiltered.length === 1 ? "movimentação" : "movimentações"}
+            </div>
+            <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+              <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: C.muted2, pointerEvents: "none", display: "flex" }}><Icon name="search" size={16} /></span>
+              <input value={histSearch} onChange={e => setHistSearch(e.target.value)}
+                placeholder="Buscar por código EC…" style={{ ...S.input, paddingLeft: 38 }} />
+            </div>
           </div>
-          {historico.length === 0
-            ? <div style={{ textAlign: "center", color: C.muted2, padding: "64px 0", fontSize: 13.5, fontFamily: FM }}>Nenhuma movimentação registrada.</div>
+
+          {histFiltered.length === 0
+            ? <div style={{ textAlign: "center", color: C.muted2, padding: "64px 0", fontSize: 13.5, fontFamily: FM }}>
+                {historico.length === 0 ? "Nenhuma movimentação registrada." : "Nenhum resultado."}
+              </div>
             : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {historico.map(h => (
-                  <div key={h.id} className="card-hover" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: "13px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FM, fontSize: 13 }}>
-                    <span style={{ fontFamily: FM, fontSize: 13, color: C.accent, fontWeight: 600, letterSpacing: 0.5, minWidth: 72 }}>{h.code}</span>
-                    <span style={S.tag(C.loc)}>{h.de}</span>
-                    <Icon name="arrowR" size={15} color={C.muted2} />
-                    <span style={S.tag(C.ok)}>{h.para}</span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 13, fontFamily: FM, marginLeft: "auto" }}><Icon name="user" size={14} />{h.responsavel}</span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted2, fontSize: 12.5, fontFamily: FM }}><Icon name="clock" size={13} />{fmt(h.data)}</span>
-                  </div>
-                ))}
+                {histFiltered.map(h => {
+                  const prod = produtos.find(p => p.code === h.code);
+                  return (
+                    <div key={h.id} className="card-hover" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: "13px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FM, fontSize: 13 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 160 }}>
+                        <span style={{ fontFamily: FM, fontSize: 13, color: C.accent, fontWeight: 600, letterSpacing: 0.5 }}>{h.code}</span>
+                        {prod?.name && <span style={{ fontFamily: FS, fontSize: 11.5, color: C.muted2 }}>{prod.name}</span>}
+                      </div>
+                      <span style={S.tag(C.loc)}>{h.de}</span>
+                      <Icon name="arrowR" size={15} color={C.muted2} />
+                      <span style={S.tag(C.ok)}>{h.para}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 13, fontFamily: FM, marginLeft: "auto" }}><Icon name="user" size={14} />{h.responsavel}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted2, fontSize: 12.5, fontFamily: FM }}><Icon name="clock" size={13} />{fmt(h.data)}</span>
+                    </div>
+                  );
+                })}
               </div>
           }
         </main>
@@ -876,7 +909,7 @@ export default function App() {
           </div>
           <div style={{ maxHeight: 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
             {locais.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>Nenhum local cadastrado.</div>}
-            {locais.map(l => (
+            {locaisOrdenados.map(l => (
               <div key={l} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 7, color: C.loc }}><Icon name="pin" size={14} /> {l}</span>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -924,7 +957,7 @@ export default function App() {
             <Lbl>PN *</Lbl>
             <input value={arPn} onChange={e => setArPn(e.target.value)} placeholder="Ex: 701234" style={S.input} />
             <Lbl>Nome e sobrenome *</Lbl>
-            <input value={arNome} onChange={e => setArNome(e.target.value)} placeholder="Ex: Nome Sobrenome" style={S.input} />
+            <input value={arNome} onChange={e => setArNome(e.target.value)} placeholder="Ex: Emerson Santos" style={S.input} />
             {!arEdit && <div style={{ fontSize: 11, color: C.muted2, marginTop: 6, fontFamily: FS }}>O usuário acessa o sistema com o PN e a senha padrão (1234), trocada obrigatoriamente no 1º acesso.</div>}
             {arError && <Err>{arError}</Err>}
             <Row>
@@ -932,9 +965,15 @@ export default function App() {
               <Btn1 onClick={saveResp}><Icon name={arEdit ? "save" : "plus"} size={15} /> {arEdit ? "Salvar" : "Adicionar"}</Btn1>
             </Row>
           </div>
+          <div style={{ position: "relative", marginBottom: 10 }}>
+            <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: C.muted2, pointerEvents: "none", display: "flex" }}><Icon name="search" size={16} /></span>
+            <input value={arSearch} onChange={e => setArSearch(e.target.value)}
+              placeholder="Buscar por PN ou nome…" style={{ ...S.input, paddingLeft: 38 }} />
+          </div>
           <div style={{ maxHeight: 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
             {resps.length === 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>Nenhum usuário cadastrado.</div>}
-            {resps.map(r => (
+            {arFiltered.length === 0 && resps.length > 0 && <div style={{ color: C.muted2, fontSize: 12, textAlign: "center", padding: "20px 0", fontFamily: FM }}>Nenhum resultado.</div>}
+            {arFiltered.map(r => (
               <div key={r.pn} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", fontSize: 12.5, gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, color: C.txt }}>
                   <Icon name="user" size={14} color={C.accent} />
