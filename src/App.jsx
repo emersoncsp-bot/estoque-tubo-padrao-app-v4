@@ -109,6 +109,7 @@ const PATHS = {
   history: <><path d="M3.5 12a8.5 8.5 0 1 0 2.7-6.2" /><path d="M3 4.5V8h3.5" /><path d="M12 8v4l3 1.8" /></>,
   lock:    <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
   alert:   <><path d="M12 4 2.5 20h19z" /><path d="M12 10v4.2" /><circle cx="12" cy="17.3" r="0.7" fill="currentColor" stroke="none" /></>,
+  file:    <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="13" y2="17" /></>,
 };
 function Icon({ name, size = 16, color = "currentColor", style }) {
   return (
@@ -647,6 +648,15 @@ export default function App() {
               desc="Gerencie padrões, locais, categorias e usuários, e altere o PIN. Acesso protegido por PIN."
               cta="Acessar" action={() => askPin(() => { setAdminMsg(""); setAdminTab("produtos"); startAddProd(); setPage("admin"); })} />
           </div>
+          <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-start" }}>
+            <a href="/manual.pdf" target="_blank" rel="noopener noreferrer"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.muted, fontFamily: FS, fontSize: 13.5, textDecoration: "none", padding: "8px 4px", borderRadius: 8, transition: "color .15s" }}
+              onMouseEnter={e => e.currentTarget.style.color = C.accent}
+              onMouseLeave={e => e.currentTarget.style.color = C.muted}>
+              <Icon name="file" size={18} />
+              Manual do usuário
+            </a>
+          </div>
         </main>
       )}
 
@@ -957,7 +967,7 @@ export default function App() {
             <Lbl>PN *</Lbl>
             <input value={arPn} onChange={e => setArPn(e.target.value)} placeholder="Ex: 701234" style={S.input} />
             <Lbl>Nome e sobrenome *</Lbl>
-            <input value={arNome} onChange={e => setArNome(e.target.value)} placeholder="Ex: Nome Sobrenome" style={S.input} />
+            <input value={arNome} onChange={e => setArNome(e.target.value)} placeholder="Ex: Emerson Santos" style={S.input} />
             {!arEdit && <div style={{ fontSize: 11, color: C.muted2, marginTop: 6, fontFamily: FS }}>O usuário acessa o sistema com o PN e a senha padrão (1234), trocada obrigatoriamente no 1º acesso.</div>}
             {arError && <Err>{arError}</Err>}
             <Row>
